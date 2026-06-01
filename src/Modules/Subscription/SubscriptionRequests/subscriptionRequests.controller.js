@@ -5,7 +5,7 @@ import {
 } from "../../../Utils/Response.js";
 import * as db from "../../../database/dbService.js";
 import { redis } from "../../../Utils/Radis/Connection.js";
-import { decryptText, looksEncrypted } from "../../../Utils/Security/index.js";
+import { decryptUserSensitiveFields } from "../../../Utils/Security/index.js";
 import { ensureExists } from "../../../database/genericService.js";
 
 export const getSubscriptionRequests = asyncHandler(async (req, res, next) => {
@@ -38,14 +38,11 @@ export const getSubscriptionRequests = asyncHandler(async (req, res, next) => {
       },
     });
 
-  // Decrypt phone numbers for display
-  for (let s of subscriptionRequests) {
-    if (s.user && s.user.phone && s.user.phone !== "null") {
-      console.log("s.user.phone before decryption", s.user.phone);
-      s.user.phone = looksEncrypted(s.user.phone) ? await decryptText({ text: s.user.phone }) : s.user.phone;
-      console.log("s.user.phone after decryption", s.user.phone);
-    }
-  }
+  await Promise.all(
+    subscriptionRequests.map((request) =>
+      decryptUserSensitiveFields(request.user),
+    ),
+  );
 
   return successResponse({
     res,

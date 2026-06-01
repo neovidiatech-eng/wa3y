@@ -5,7 +5,10 @@ import {
 } from "../../Utils/Response.js";
 import * as db from "../../database/dbService.js";
 import { ensureExists } from "../../database/genericService.js";
-import { decryptText, hash, looksEncrypted } from "../../Utils/Security/index.js";
+import {
+  decryptUserSensitiveFields,
+  encryptPassword,
+} from "../../Utils/Security/index.js";
 
 export const getAllStudents = asyncHandler(async (req, res, next) => {
   const { search, country, plans, page = 1, limit = 10 } = req.query;
@@ -47,17 +50,11 @@ export const getAllStudents = asyncHandler(async (req, res, next) => {
     });
   const studentsData = await Promise.all(
     students.map(async (student) => {
-      console.log(student.user.phone);
-
-      const phone = looksEncrypted(student.user.phone)
-        ? await decryptText({ text: student.user.phone })
-        : student.user.phone;
-      console.log(phone);
+      await decryptUserSensitiveFields(student.user);
       return {
         ...student,
         user: {
           ...student.user,
-          phone: phone,
         },
       };
     }),
@@ -115,7 +112,7 @@ export const createStudent = asyncHandler(async (req, res, next) => {
   if (!checkPlan)
     return errorResponse({ req, next, message: "PLAN_NOT_FOUND", status: 404 });
 
-  const hashedPassword = await hash({ password });
+  const encryptedPassword = encryptPassword({ password });
 
   // Fetch system wallet before the transaction so we can reference its id inside
   const systemWallet = await db.findFirst({
@@ -140,7 +137,7 @@ export const createStudent = asyncHandler(async (req, res, next) => {
         name,
         email,
         phone,
-        password: hashedPassword,
+        password: encryptedPassword,
         code_country: phone_code,
         status: "active",
         confirmAt: new Date(),
@@ -238,6 +235,13 @@ export const getStudentById = asyncHandler(async (req, res, next) => {
     }),
   ]);
   if (student) {
+    await decryptUserSensitiveFields(student.user);
+    await Promise.all(
+      studentTeachers.map((teacher) =>
+        decryptUserSensitiveFields(teacher.teacher.user),
+      ),
+    );
+
     const uniqueTeachers = [
       ...new Set(studentTeachers.map((teacher) => teacher.teacher.id)),
     ].map((id) => {
@@ -344,6 +348,8 @@ export const updateStudent = asyncHandler(async (req, res, next) => {
     },
     include: { user: true, plan: true },
   });
+
+  await decryptUserSensitiveFields(updatedStudent.user);
 
   return successResponse({
     res,

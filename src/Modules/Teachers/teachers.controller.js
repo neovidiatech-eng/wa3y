@@ -5,7 +5,10 @@ import {
 } from "../../Utils/Response.js";
 import * as db from "../../database/dbService.js";
 import { ensureExists } from "../../database/genericService.js";
-import { hash } from "../../Utils/Security/index.js";
+import {
+  decryptUserSensitiveFields,
+  encryptPassword,
+} from "../../Utils/Security/index.js";
 
 export const getAllTeachers = asyncHandler(async (req, res, next) => {
   const { search, page = 1, limit = 10, active } = req.query;
@@ -42,6 +45,10 @@ export const getAllTeachers = asyncHandler(async (req, res, next) => {
     model: "teacher",
     where: { active: true },
   });
+
+  await Promise.all(
+    teachers.map((teacher) => decryptUserSensitiveFields(teacher.user)),
+  );
 
   return successResponse({
     res,
@@ -128,7 +135,7 @@ export const createTeacher = asyncHandler(async (req, res, next) => {
     });
   }
 
-  const hashedPassword = await hash({ password });
+  const encryptedPassword = encryptPassword({ password });
 
   // Use a transaction to ensure both user and profile are created
   const result = await db.transaction(async (tx) => {
@@ -137,7 +144,7 @@ export const createTeacher = asyncHandler(async (req, res, next) => {
       data: {
         name,
         email,
-        password: hashedPassword,
+        password: encryptedPassword,
         phone,
         code_country,
         ...(getrole && { roleId: getrole.id }),
@@ -203,6 +210,8 @@ export const getTeacher = asyncHandler(async (req, res, next) => {
     message: "TEACHER_NOT_FOUND",
   });
 
+  await decryptUserSensitiveFields(teacher.user);
+
   return successResponse({
     res,
     req,
@@ -233,9 +242,9 @@ export const updateTeacher = asyncHandler(async (req, res, next) => {
     include: { user: true },
   });
 
-  let hashedPassword;
+  let encryptedPassword;
   if (password) {
-    hashedPassword = await hash({ password });
+    encryptedPassword = encryptPassword({ password });
   }
 
   // Handle unique constraints
@@ -262,14 +271,14 @@ export const updateTeacher = asyncHandler(async (req, res, next) => {
   }
 
   // Update user data first if needed
-  if (name || email || hashedPassword || phone || code_country) {
+  if (name || email || encryptedPassword || phone || code_country) {
     await db.updateOne({
       model: "user",
       where: { id: teacher.user_id },
       data: {
         ...(name && { name }),
         ...(email && { email }),
-        ...(hashedPassword && { password: hashedPassword }),
+        ...(encryptedPassword && { password: encryptedPassword }),
         ...(phone && { phone }),
         ...(code_country && { code_country }),
         ...(timezone && { timezone }),
@@ -301,6 +310,8 @@ export const updateTeacher = asyncHandler(async (req, res, next) => {
       teacherSubjects: { include: { subject: true } },
     },
   });
+
+  await decryptUserSensitiveFields(updatedTeacher.user);
 
   return successResponse({
     res,
