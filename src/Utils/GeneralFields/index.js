@@ -1,4 +1,24 @@
 import Joi from "joi";
+
+export const validateInternationalPhoneLength = ({
+  phoneKey = "phone",
+  codeCountryKey = "codeCountry",
+} = {}) => {
+  return (value, helpers) => {
+    const phone = value?.[phoneKey];
+    const codeCountry = value?.[codeCountryKey];
+
+    if (!phone || !codeCountry) return value;
+
+    const codeDigits = codeCountry.replace("+", "");
+    if (codeDigits.length + phone.length > 15) {
+      return helpers.error("phone.e164Length");
+    }
+
+    return value;
+  };
+};
+
 export const generalFeilds = {
   role_name: Joi.string().min(3).max(15).messages({
     "string.base": "Role name must be a string",
@@ -80,12 +100,12 @@ export const generalFeilds = {
     "any.required": "Country is required",
   }),
   phone: Joi.string()
-    .pattern(new RegExp("^(?:\\+20|0020|0)?1[0125][0-9]{8}$"))
+    .pattern(/^[0-9]{4,14}$/)
     .messages({
       "string.base": "Phone number must be a string",
       "string.empty": "Phone number cannot be empty",
       "string.pattern.base":
-        "Please enter a valid Egyptian phone number (e.g. 01012345678)",
+        "Phone must contain national digits only, without country code, spaces, or symbols",
       "any.required": "Phone number is required",
     }),
   idToken: Joi.string().messages({
@@ -177,10 +197,11 @@ export const generalFeilds = {
       "any.required": "File size is required",
     }),
   },
-  codeCountry: Joi.string().valid("+20", "+966").messages({
+  codeCountry: Joi.string().pattern(/^\+[1-9]\d{0,2}$/).messages({
     "string.base": "Code country must be a string",
     "string.empty": "Code country cannot be empty",
-    "any.only": "Code country must be either '+20' or '+966'",
+    "string.pattern.base":
+      "Code country must be an international prefix like +1, +20, +44, or +966",
     "any.required": "Code country is required",
   }),
   name_en: Joi.string().messages({

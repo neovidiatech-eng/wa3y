@@ -1,5 +1,8 @@
 import joi from "joi";
-import { generalFeilds } from "../../Utils/GeneralFields/index.js";
+import {
+  generalFeilds,
+  validateInternationalPhoneLength,
+} from "../../Utils/GeneralFields/index.js";
 export const getAllTeachersSchema = {
   query: joi.object({
     search: generalFeilds.search,
@@ -42,6 +45,14 @@ export const createTeacherSchema = {
           "any.required": "MEETING_LINK_REQUIRED",
         })
         .optional(),
+    })
+    .custom(
+      validateInternationalPhoneLength({
+        codeCountryKey: "code_country",
+      }),
+    )
+    .messages({
+      "phone.e164Length": "PHONE_E164_MAX_LENGTH",
     })
     .required(),
 };
@@ -91,6 +102,14 @@ export const updateTeacherSchema = {
         }),
       ),
       timezone: joi.string().optional(),
+    })
+    .custom(
+      validateInternationalPhoneLength({
+        codeCountryKey: "code_country",
+      }),
+    )
+    .messages({
+      "phone.e164Length": "PHONE_E164_MAX_LENGTH",
     })
     .required(),
 };
