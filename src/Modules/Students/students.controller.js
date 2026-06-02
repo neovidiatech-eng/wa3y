@@ -84,10 +84,9 @@ export const createStudent = asyncHandler(async (req, res, next) => {
     timezone,
   } = req.body;
 
-  const [checkUserByEmail, checkUserByPhone, checkPlan, studentRole] =
+  const [checkUserByEmail, checkPlan, studentRole] =
     await Promise.all([
       db.findOne({ model: "user", where: { email } }),
-      db.findFirst({ model: "user", where: { phone } }),
       db.findOne({ model: "Plans", where: { id: planId } }),
       db.findFirst({
         model: "role",
@@ -100,13 +99,6 @@ export const createStudent = asyncHandler(async (req, res, next) => {
       req,
       next,
       message: "EMAIL_EXISTS",
-      status: 400,
-    });
-  if (checkUserByPhone)
-    return errorResponse({
-      req,
-      next,
-      message: "PHONE_EXISTS",
       status: 400,
     });
   if (!checkPlan)
@@ -295,17 +287,6 @@ export const updateStudent = asyncHandler(async (req, res, next) => {
         req,
         next,
         message: "EMAIL_EXISTS",
-        status: 400,
-      });
-  }
-
-  if (phone && phone !== student.user.phone) {
-    const existing = await db.findFirst({ model: "user", where: { phone } });
-    if (existing)
-      return errorResponse({
-        req,
-        next,
-        message: "PHONE_EXISTS",
         status: 400,
       });
   }
