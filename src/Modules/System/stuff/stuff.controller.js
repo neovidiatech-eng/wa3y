@@ -85,7 +85,8 @@ export const getStuffById = asyncHandler(async (req, res, next) => {
 });
 
 export const createStuffUser = asyncHandler(async (req, res, next) => {
-  const { name, email, password, phone, codeCountry, roleId } = req.body;
+  const { name, email, password, phone, code_country, roleId } = req.body;
+  let codeCountry=code_country
 
   const [checkUserByEmail, checkUserByPhone, checkRole] = await Promise.all([
     db.findOne({ model: "user", where: { email } }),
