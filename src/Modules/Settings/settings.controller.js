@@ -69,7 +69,7 @@ export const updateLateDiscount = asyncHandler(async (req, res, next) => {
     lateMinutes === undefined ||
     discountPercentage === undefined
   ) {
-    return next(new Error("lateMinutes and discountPercentage are required"));
+    return next(new Error("LATE_MINUTES_AND_DISCOUNT_PERCENTAGE_REQUIRED"));
   }
 
   const settings = await getSettingsData();
