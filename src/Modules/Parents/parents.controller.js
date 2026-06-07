@@ -1,6 +1,7 @@
 import { asyncHandler, successResponse, errorResponse } from "../../Utils/Response.js";
 import * as db from "../../database/dbService.js";
 import { ensureExists } from "../../database/genericService.js";
+import { formatSchedules } from "../../Utils/Date/time.js";
 import {
   decryptText,
   decryptUserSensitiveFields,
@@ -586,11 +587,13 @@ export const getStudentSessions = asyncHandler(async (req, res, next) => {
     orderBy: { start_time: "desc" },
   });
 
+  const formattedSessions = formatSchedules(sessions, req.timezone);
+
   return successResponse({
     req,
     res,
     status: 200,
-    data: sessions,
+    data: formattedSessions,
   });
 });
 
@@ -615,11 +618,16 @@ export const getStudentAttendance = asyncHandler(async (req, res, next) => {
     orderBy: { createdAt: "desc" },
   });
 
+  const formattedAttendanceLogs = attendanceLogs.map((log) => ({
+    ...log,
+    schedule: log.schedule ? formatSchedules(log.schedule, req.timezone) : log.schedule,
+  }));
+
   return successResponse({
     req,
     res,
     status: 200,
-    data: attendanceLogs,
+    data: formattedAttendanceLogs,
   });
 });
 

@@ -1,4 +1,4 @@
-import { getNowUTC } from "../../../Utils/Date/time.js";
+import { getNowUTC, formatSchedules } from "../../../Utils/Date/time.js";
 import {
   asyncHandler,
   errorResponse,
@@ -98,13 +98,16 @@ export const getProfile = asyncHandler(async (req, res, next) => {
       color: ts.subject.color,
       active: ts.subject.active,
     })),
-    schedules: user.schedules.map((s) => ({
+    schedules: formatSchedules(user.schedules, req.timezone).map((s) => ({
       title: s.title,
       description: s.description,
       type: s.type,
       status: s.status,
       startTime: s.start_time,
       endTime: s.end_time,
+      display_start_time: s.display_start_time,
+      display_end_time: s.display_end_time,
+      display_timezone: s.display_timezone,
       isRecurring: s.is_recurring,
       link: s.link,
       notes: s.notes,
@@ -235,34 +238,37 @@ export const getDashboardStats = asyncHandler(async (req, res, next) => {
         color: ts.subject.color,
         active: ts.subject.active,
       })),
-      schedules: user.schedules.map((s) => ({
-        title: s.title,
-        description: s.description,
-        type: s.type,
-        status: s.status,
-        startTime: s.start_time,
-        endTime: s.end_time,
-        isRecurring: s.is_recurring,
-        link: s.link,
-        notes: s.notes,
-        subject: {
-          nameEn: s.subject.name_en,
-          nameAr: s.subject.name_ar,
-          color: s.subject.color,
+    schedules: formatSchedules(user.schedules, req.timezone).map((s) => ({
+      title: s.title,
+      description: s.description,
+      type: s.type,
+      status: s.status,
+      startTime: s.start_time,
+      endTime: s.end_time,
+      display_start_time: s.display_start_time,
+      display_end_time: s.display_end_time,
+      display_timezone: s.display_timezone,
+      isRecurring: s.is_recurring,
+      link: s.link,
+      notes: s.notes,
+      subject: {
+        nameEn: s.subject.name_en,
+        nameAr: s.subject.name_ar,
+        color: s.subject.color,
+      },
+      student: {
+        name: s.student.user.name,
+        email: s.student.user.email,
+        gender: s.student.gender,
+        country: s.student.country,
+        status: s.student.status,
+        sessions: {
+          total: s.student.sessions,
+          attended: s.student.sessions_attended,
+          remaining: s.student.sessions_remaining,
         },
-        student: {
-          name: s.student.user.name,
-          email: s.student.user.email,
-          gender: s.student.gender,
-          country: s.student.country,
-          status: s.student.status,
-          sessions: {
-            total: s.student.sessions,
-            attended: s.student.sessions_attended,
-            remaining: s.student.sessions_remaining,
-          },
-        },
-      })),
+      },
+    })),
 
       todaySchedules,
       students, // ✅ الطلاب الـ unique

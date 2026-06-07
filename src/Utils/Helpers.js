@@ -43,17 +43,19 @@ export const checkConflict = async ({ model, where, next }) => {
   return existing;
 };
 
-import { standardizeDate, toUTC, getDatesBetweenUTC, combineDateAndTime, formatSchedules } from "./Date/time.js";
+import {
+  standardizeDate,
+  toUTC,
+  getDatesBetweenUTC,
+  combineDateAndTime,
+  formatSchedules,
+} from "./Date/time.js";
 
-export const getEndTime = ({startTime, duration = 0, tz}) => {
+export const getEndTime = ({ startTime, duration = 0, tz }) => {
   const start = toUTC(startTime, tz);
   if (!start) return null;
 
-  let end;
-  if (duration > 0) {
-    end = start.add(duration, "minute");
-  }
-
+  const end = duration > 0 ? start.add(duration, "minute") : start;
   return end.toDate();
 };
 

@@ -57,8 +57,8 @@ export const getAllSchedules = asyncHandler(async (req, res, next) => {
   // 📅 فلترة بالتاريخ
   if (start_date && end_date) {
     where.start_time = {
-      gte: normalizeDate(start_date),
-      lte: normalizeDate(end_date),
+      gte: normalizeDate(start_date, req.timezone),
+      lte: normalizeDate(end_date, req.timezone),
     };
   }
 
@@ -256,7 +256,6 @@ export const createSchedule = asyncHandler(async (req, res, next) => {
     req,
     data: {
       schedule: formatSchedules(newSchedule, req.timezone),
-      start_time_local: toLocal(newSchedule.start_time, req.timezone),
     },
     status: 201,
     message: "CREATE_SUCCESS",
@@ -416,11 +415,15 @@ export const createRecurringSchedule = asyncHandler(async (req, res, next) => {
       end_time,
       subjectId: subject_id,
       is_recurring: true,
-      day_of_week: date.toLocaleDateString("en-US", { weekday: "long" }),
+      day_of_week: dayjs.tz(date, req.timezone).format("dddd"),
       parent_recurring_id: parentRecurringId,
     });
 
-    notificationJobs.push({ start_time, notification_Time });
+    notificationJobs.push({
+      start_time,
+      notification_Time,
+      index: schedulesToCreate.length - 1,
+    });
   }
 
   // Atomically create all valid schedules + deduct sessions in one transaction
@@ -451,7 +454,7 @@ export const createRecurringSchedule = asyncHandler(async (req, res, next) => {
 
     // Queue notification jobs after successful transaction
     const now = new Date();
-    for (const { start_time: st, notification_Time: nt } of notificationJobs) {
+    for (const { start_time: st, notification_Time: nt, index } of notificationJobs) {
       let reminderTime;
       let notificationJobType;
       if (nt === notificationType[1]) {
@@ -466,13 +469,7 @@ export const createRecurringSchedule = asyncHandler(async (req, res, next) => {
       }
       if (reminderTime > now) {
         addNotificationJob({
-          scheduleId:
-            createdSchedules[
-              notificationJobs.indexOf({
-                start_time: st,
-                notification_Time: nt,
-              })
-            ]?.id,
+          scheduleId: createdSchedules[index]?.id,
           studentId,
           type: notificationJobType,
           sendAt: reminderTime,
@@ -757,12 +754,11 @@ export const updateSchedule = asyncHandler(async (req, res, next) => {
     startTime = start_time
       ? normalizeDate(start_time, req.timezone)
       : startTime;
-    endTime = getEndTime(
+    endTime = getEndTime({
       startTime,
-      sessionType,
-      schedule.student.plan?.sessionTime,
-      req.timezone,
-    );
+      duration: schedule.student.plan?.sessionTime,
+      tz: req.timezone,
+    });
 
     updateData.start_time = startTime;
     updateData.end_time = endTime;
