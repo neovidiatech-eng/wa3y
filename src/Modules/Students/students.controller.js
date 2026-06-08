@@ -11,7 +11,7 @@ import {
 } from "../../Utils/Security/index.js";
 
 export const getAllStudents = asyncHandler(async (req, res, next) => {
-  const { search, country, plans, page = 1, limit = 10 } = req.query;
+  const { search, country, plans, page = 1, limit = 10, active } = req.query;
 
   const where = {};
   if (search) {
@@ -28,9 +28,16 @@ export const getAllStudents = asyncHandler(async (req, res, next) => {
   if (plans) {
     where.planId = plans;
   }
+  if (active !== undefined) {
+    where.active = active === "true";
+  }
 
-  const { items: students, pagination } =
-    await db.findManyWithPaginationAndCount({
+  const [
+    { items: students, pagination },
+    totalCount,
+    activeCount,
+  ] = await Promise.all([
+    db.findManyWithPaginationAndCount({
       model: "student",
       where,
       page,
@@ -47,7 +54,11 @@ export const getAllStudents = asyncHandler(async (req, res, next) => {
         },
         plan: true,
       },
-    });
+    }),
+    db.count({ model: "student" }),
+    db.count({ model: "student", where: { active: true } }),
+  ]);
+
   const studentsData = await Promise.all(
     students.map(async (student) => {
       await decryptUserSensitiveFields(student.user);
@@ -64,7 +75,32 @@ export const getAllStudents = asyncHandler(async (req, res, next) => {
     res,
     req,
     message: "FETCH_SUCCESS",
-    data: { studentsData, pagination },
+    data: {
+      studentsData,
+      pagination,
+      totalCount,
+      activeCount,
+      inactiveCount: totalCount - activeCount,
+    },
+    status: 200,
+  });
+});
+
+export const getStudentsStats = asyncHandler(async (req, res, next) => {
+  const [totalCount, activeCount] = await Promise.all([
+    db.count({ model: "student" }),
+    db.count({ model: "student", where: { active: true } }),
+  ]);
+
+  return successResponse({
+    res,
+    req,
+    message: "FETCH_SUCCESS",
+    data: {
+      totalCount,
+      activeCount,
+      inactiveCount: totalCount - activeCount,
+    },
     status: 200,
   });
 });
