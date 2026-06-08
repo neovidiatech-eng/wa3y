@@ -99,6 +99,11 @@ export const generalFeilds = {
     "string.empty": "Country cannot be empty",
     "any.required": "Country is required",
   }),
+  nationality: Joi.string().messages({
+    "string.base": "Nationality must be a string",
+    "string.empty": "Nationality cannot be empty",
+    "any.required": "Nationality is required",
+  }),
   phone: Joi.string()
     .pattern(/^[0-9]{4,14}$/)
     .messages({

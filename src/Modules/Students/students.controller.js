@@ -77,6 +77,7 @@ export const createStudent = asyncHandler(async (req, res, next) => {
     phone,
     phone_code,
     country,
+    nationality,
     planId,
     birth_date,
     gender,
@@ -131,6 +132,8 @@ export const createStudent = asyncHandler(async (req, res, next) => {
         phone,
         password: encryptedPassword,
         code_country: phone_code,
+        country,
+        nationality,
         status: "active",
         confirmAt: new Date(),
         timezone,
@@ -266,6 +269,7 @@ export const updateStudent = asyncHandler(async (req, res, next) => {
     phone,
     phone_code,
     country,
+    nationality,
     planId,
     birth_date,
     gender,
@@ -303,7 +307,7 @@ export const updateStudent = asyncHandler(async (req, res, next) => {
   }
 
   // Update user record if needed
-  if (name || email || phone || phone_code || timezone) {
+  if (name || email || phone || phone_code || country || nationality || timezone) {
     await db.updateOne({
       model: "user",
       where: { id: student.user_id },
@@ -312,6 +316,8 @@ export const updateStudent = asyncHandler(async (req, res, next) => {
         ...(email && { email }),
         ...(phone && { phone }),
         ...(phone_code && { code_country: phone_code }),
+        ...(country && { country }),
+        ...(nationality && { nationality }),
         ...(timezone && { timezone }),
       },
     });

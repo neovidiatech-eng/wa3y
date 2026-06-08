@@ -70,6 +70,8 @@ export const createTeacher = asyncHandler(async (req, res, next) => {
     password,
     phone,
     code_country,
+    country,
+    nationality,
     currency_id,
     gender,
     hour_price,
@@ -147,6 +149,8 @@ export const createTeacher = asyncHandler(async (req, res, next) => {
         password: encryptedPassword,
         phone,
         code_country,
+        country,
+        nationality,
         ...(getrole && { roleId: getrole.id }),
         confirmAt: new Date(), // Teachers created by admin are confirmed by default
         status: "active",
@@ -228,6 +232,8 @@ export const updateTeacher = asyncHandler(async (req, res, next) => {
     password,
     phone,
     code_country,
+    country,
+    nationality,
     currency_id,
     gender,
     hour_price,
@@ -271,7 +277,16 @@ export const updateTeacher = asyncHandler(async (req, res, next) => {
   }
 
   // Update user data first if needed
-  if (name || email || encryptedPassword || phone || code_country) {
+  if (
+    name ||
+    email ||
+    encryptedPassword ||
+    phone ||
+    code_country ||
+    country ||
+    nationality ||
+    timezone
+  ) {
     await db.updateOne({
       model: "user",
       where: { id: teacher.user_id },
@@ -281,6 +296,8 @@ export const updateTeacher = asyncHandler(async (req, res, next) => {
         ...(encryptedPassword && { password: encryptedPassword }),
         ...(phone && { phone }),
         ...(code_country && { code_country }),
+        ...(country && { country }),
+        ...(nationality && { nationality }),
         ...(timezone && { timezone }),
       },
     });

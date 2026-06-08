@@ -36,6 +36,7 @@ export const register = asyncHandler(async (req, res, next) => {
     birth_date,
     gender,
     country,
+    nationality,
     timezone,
   } = req.body;
 
@@ -106,6 +107,8 @@ export const register = asyncHandler(async (req, res, next) => {
         password: encryptedPassword,
         phone: encryptedPhone,
         code_country: codeCountry,
+        country,
+        nationality,
         timezone,
         roleId: userRole?.id ? userRole.id : null,
       },
@@ -123,6 +126,7 @@ export const register = asyncHandler(async (req, res, next) => {
         birth_date,
         gender,
         country,
+        nationality,
         timezone,
         user_id: user.id,
       }),

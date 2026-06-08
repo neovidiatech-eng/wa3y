@@ -13,6 +13,7 @@ export const createStudentSchema = {
       phone: generalFeilds.phone.required(),
       phone_code: generalFeilds.codeCountry.required(),
       country: generalFeilds.country.required(),
+      nationality: generalFeilds.nationality.optional(),
       planId: generalFeilds.id
         .messages({
           "string.base": "PLAN_ID_MUST_BE_STRING",
@@ -46,6 +47,7 @@ export const updateStudentSchema = {
       phone: generalFeilds.phone,
       phone_code: generalFeilds.codeCountry,
       country: generalFeilds.country,
+      nationality: generalFeilds.nationality,
       planId: generalFeilds.id,
       birth_date: generalFeilds.birth_date,
       gender: generalFeilds.gender,

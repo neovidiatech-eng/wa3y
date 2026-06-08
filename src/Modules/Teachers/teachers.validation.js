@@ -21,6 +21,8 @@ export const createTeacherSchema = {
       password: generalFeilds.password.required(),
       phone: generalFeilds.phone.required(),
       code_country: generalFeilds.codeCountry.required(),
+      country: generalFeilds.country.optional(),
+      nationality: generalFeilds.nationality.optional(),
       subject_ids: joi.array().items(
         generalFeilds.id.messages({
           "string.base": "SUBJECT_ID_STRING",
@@ -80,6 +82,8 @@ export const updateTeacherSchema = {
       password: generalFeilds.password,
       phone: generalFeilds.phone,
       code_country: generalFeilds.codeCountry,
+      country: generalFeilds.country,
+      nationality: generalFeilds.nationality,
       currency_id: generalFeilds.id.messages({
         "string.base": "CURRENCY_ID_STRING",
         "string.empty": "CURRENCY_ID_EMPTY",
