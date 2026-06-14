@@ -18,7 +18,7 @@ export const getCalendar = asyncHandler(async (req, res, next) => {
     db.count({
       model: "schedule",
       where: {
-        status: "planned",
+        status: { in: ["scheduled", "planned"] },
       },
     }),
     db.findMany({
@@ -103,7 +103,7 @@ export const getStudentCalendar = asyncHandler(async (req, res, next) => {
     db.count({
       model: "schedule",
       where: {
-        status: "planned",
+        status: { in: ["scheduled", "planned"] },
         studentId: id,
       },
       include: {
@@ -297,7 +297,7 @@ export const getTeacherCalendar = asyncHandler(async (req, res, next) => {
     db.count({
       model: "schedule",
       where: {
-        status: "planned",
+        status: { in: ["scheduled", "planned"] },
         teacherId: id,
       },
       include: {

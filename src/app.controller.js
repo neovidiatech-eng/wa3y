@@ -63,15 +63,6 @@ const bootstrap = async () => {
   // Root Router
   app.use(rootRouter);
 
-  try {
-    const swaggerDocument = JSON.parse(
-      fs.readFileSync(path.resolve("./src/Utils/Swagger.json"), "utf8"),
-    );
-    app.use("/api-docs", ...swaggerUi.serve, swaggerUi.setup(swaggerDocument));
-    console.log("Swagger UI is available at /api-docs");
-  } catch (err) {
-    console.error("Failed to load swagger documentation", err);
-  }
 
   app.use(globalErrorHandling);
 
