@@ -240,7 +240,7 @@ export const generalFeilds = {
     "any.required": "Default is required",
   }),
 
-  description: Joi.string().min(10).max(1000).messages({
+  description: Joi.string().messages({
     "string.base": "Description must be a string",
     "string.empty": "Description cannot be empty",
     "any.required": "Description is required",
