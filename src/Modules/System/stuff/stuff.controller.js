@@ -88,9 +88,8 @@ export const createStuffUser = asyncHandler(async (req, res, next) => {
   const { name, email, password, phone, code_country, roleId } = req.body;
   let codeCountry=code_country
 
-  const [checkUserByEmail, checkUserByPhone, checkRole] = await Promise.all([
+  const [checkUserByEmail, checkRole] = await Promise.all([
     db.findOne({ model: "user", where: { email } }),
-    db.findFirst({ model: "user", where: { phone } }),
     roleId
       ? db.findOne({ model: "role", where: { id: roleId } })
       : Promise.resolve(null),
@@ -98,8 +97,6 @@ export const createStuffUser = asyncHandler(async (req, res, next) => {
 
   if (checkUserByEmail)
     return errorResponse({ req, next, message: "EMAIL_EXISTS", status: 400 });
-  if (checkUserByPhone)
-    return errorResponse({ req, next, message: "PHONE_EXISTS", status: 400 });
   if (roleId && !checkRole)
     return errorResponse({ req, next, message: "ROLE_NOT_FOUND", status: 404 });
 
@@ -157,11 +154,7 @@ export const updateStuffUser = asyncHandler(async (req, res, next) => {
       return errorResponse({ req, next, message: "EMAIL_EXISTS", status: 400 });
   }
 
-  if (phone && phone !== stuff.user.phone) {
-    const existing = await db.findFirst({ model: "user", where: { phone } });
-    if (existing)
-      return errorResponse({ req, next, message: "PHONE_EXISTS", status: 400 });
-  }
+
 
   const encryptedPassword = password
     ? encryptPassword({ password })
@@ -233,10 +226,7 @@ export const registerParent = asyncHandler(async (req, res, next) => {
     students,
   } = req.body;
 
-  const [checkUserByEmail, checkUserByPhone] = await Promise.all([
-    db.findFirst({ model: "user", where: { email } }),
-    db.findFirst({ model: "user", where: { phone } }),
-  ]);
+  const checkUserByEmail = await db.findFirst({ model: "user", where: { email } });
 
   const userRole = await db.upsertOne({
     model: "role",
@@ -249,10 +239,6 @@ export const registerParent = asyncHandler(async (req, res, next) => {
 
   if (checkUserByEmail) {
     return errorResponse({ req, next, message: "EMAIL_EXISTS", status: 400 });
-  }
-
-  if (checkUserByPhone) {
-    return errorResponse({ req, next, message: "PHONE_EXISTS", status: 400 });
   }
 
   const encryptedPassword = encryptPassword({ password });

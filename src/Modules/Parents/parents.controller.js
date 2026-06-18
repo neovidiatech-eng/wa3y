@@ -183,16 +183,10 @@ export const createParent = asyncHandler(async (req, res, next) => {
     students = [],
   } = req.body;
 
-  const [checkUserByEmail, checkUserByPhone] = await Promise.all([
-    db.findOne({ model: "user", where: { email } }),
-    db.findFirst({ model: "user", where: { phone } }),
-  ]);
+  const checkUserByEmail = await db.findOne({ model: "user", where: { email } });
 
   if (checkUserByEmail) {
     return errorResponse({ req, next, message: "EMAIL_EXISTS", status: 400 });
-  }
-  if (checkUserByPhone) {
-    return errorResponse({ req, next, message: "PHONE_EXISTS", status: 400 });
   }
 
   const parentRole = await db.findFirst({
@@ -336,17 +330,7 @@ export const updateParent = asyncHandler(async (req, res, next) => {
       });
   }
 
-  if (phone) {
-    const existingUser = await db.findFirst({ model: "user", where: { phone } });
-    if (existingUser && existingUser.id !== parent.id) {
-      return errorResponse({
-        req,
-        message: "PHONE_EXISTS",
-        next,
-        status: 400,
-      });
-    }
-  }
+
 
   const encryptedPhone = phone ? encryptText({ text: phone }) : undefined;
 

@@ -84,13 +84,11 @@ export const createTeacher = asyncHandler(async (req, res, next) => {
   // Parallel checks for existence/uniqueness
   const [
     checkUserByEmail,
-    checkUserByPhone,
     checkCurrency,
     checkSubjects,
     getrole,
   ] = await Promise.all([
     db.findOne({ model: "user", where: { email } }),
-    db.findFirst({ model: "user", where: { phone } }),
     db.findOne({ model: "currency", where: { id: currency_id } }),
     db.findMany({
       model: "subjects",
@@ -111,13 +109,6 @@ export const createTeacher = asyncHandler(async (req, res, next) => {
     return errorResponse({
       req,
       message: "EMAIL_EXISTS",
-      next,
-      status: 400,
-    });
-  if (checkUserByPhone)
-    return errorResponse({
-      req,
-      message: "PHONE_EXISTS",
       next,
       status: 400,
     });
@@ -265,16 +256,7 @@ export const updateTeacher = asyncHandler(async (req, res, next) => {
       });
   }
 
-  if (phone && phone !== teacher.user.phone) {
-    const existing = await db.findFirst({ model: "user", where: { phone } });
-    if (existing)
-      return errorResponse({
-        req,
-        message: "PHONE_EXISTS",
-        next,
-        status: 400,
-      });
-  }
+
 
   // Update user data first if needed
   if (
