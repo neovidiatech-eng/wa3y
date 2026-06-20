@@ -146,6 +146,7 @@ export const updateStuffUser = asyncHandler(async (req, res, next) => {
     model: "stuff",
     where: { id },
     include: { user: true },
+    message: "STAFF_NOT_FOUND",
   });
 
   if (email && email !== stuff.user.email) {
@@ -202,7 +203,7 @@ export const updateStuffUser = asyncHandler(async (req, res, next) => {
 
 export const deleteStuffUser = asyncHandler(async (req, res, next) => {
   const { id } = req.params;
-  const stuff = await ensureExists({ model: "stuff", where: { id }, include: { role: true } });
+  const stuff = await ensureExists({ model: "stuff", where: { id }, include: { role: true }, message: "STAFF_NOT_FOUND" });
   if (stuff.role?.name === "super_admin") {
     return errorResponse({ req, next, message: "SUPER_ADMIN_CANNOT_BE_DELETED", status: 400 });
   }

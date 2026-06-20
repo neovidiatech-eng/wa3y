@@ -86,7 +86,7 @@ export const register = asyncHandler(async (req, res, next) => {
   await redis.set(`${email}_otp_attempts`, 0, { EX: 60 * 10 });
 
   // 4. Send Verification Email
-  const mailResult = await sendEmail({ email, otp, lang: req.lang });
+  const mailResult = await sendEmail({  email, otp, lang: req.lang });
 
   if (!mailResult.success) {
     const errorMsg =
