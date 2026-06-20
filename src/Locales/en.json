@@ -16,6 +16,8 @@
   "SESSION_NOT_FOUND": "Session not found",
   "SESSION_CANCELLED": "Session cancelled",
   "SESSION_RESCHEDULED": "Session moved to {{date}}",
+  "SESSION_REMINDER_EMAIL_SUBJECT": "Upcoming session reminder",
+  "SESSION_REMINDER_EMAIL_TEXT": "Please be ready a few minutes early and use the join button when your session starts.",
   "INTERNAL_SERVER_ERROR": "An internal server error occurred",
   "VALIDATION_ERROR": "Validation failed",
   "UNAUTHORIZED": "You are not authorized to perform this action",

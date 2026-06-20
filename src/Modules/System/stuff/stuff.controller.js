@@ -202,7 +202,10 @@ export const updateStuffUser = asyncHandler(async (req, res, next) => {
 
 export const deleteStuffUser = asyncHandler(async (req, res, next) => {
   const { id } = req.params;
-  const stuff = await ensureExists({ model: "stuff", where: { id } });
+  const stuff = await ensureExists({ model: "stuff", where: { id }, include: { role: true } });
+  if (stuff.role?.name === "super_admin") {
+    return errorResponse({ req, next, message: "SUPER_ADMIN_CANNOT_BE_DELETED", status: 400 });
+  }
 
   // Delete user (cascades to stuff)
   await db.deleteOne({ model: "user", where: { id: stuff.user_id } });

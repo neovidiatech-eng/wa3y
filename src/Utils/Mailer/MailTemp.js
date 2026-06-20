@@ -10,13 +10,13 @@
 //     ? otpDigits.map((digit) => `
 //         <td style="padding:0 4px;">
 //             <div style="
-//                 width:48px; 
-//                 height:58px; 
+//                 width:48px;
+//                 height:58px;
 //                 background: linear-gradient(145deg, #F8FAFC, #EEF2FF);
 //                 border: 2px solid #C7D2FE;
-//                 border-radius:12px; 
-//                 font-size:28px; 
-//                 font-weight:800; 
+//                 border-radius:12px;
+//                 font-size:28px;
+//                 font-weight:800;
 //                 color:#1E40AF;
 //                 line-height:58px;
 //                 text-align:center;
@@ -225,10 +225,10 @@
 //                                 <tr>
 //                                     <td align="center">
 //                                         <div style="
-//                       width:90px; 
-//                       height:90px; 
+//                       width:90px;
+//                       height:90px;
 //                       background: linear-gradient(145deg, #EEF2FF, #E0E7FF);
-//                       border-radius:22px; 
+//                       border-radius:22px;
 //                       box-shadow: 0 10px 25px -5px rgba(99, 102, 241, 0.3), inset 0 1px 0 rgba(255,255,255,0.8);
 //                       text-align:center;
 //                       line-height:90px;
@@ -336,13 +336,13 @@
 //                                 <tr>
 //                                     <td align="center">
 //                                         <a href="${process.env.FRONTEND_URL || 'http://localhost:4200'}/#/" target="_blank" style="
-//                         display:inline-block; 
-//                         padding:16px 40px; 
+//                         display:inline-block;
+//                         padding:16px 40px;
 //                         background: linear-gradient(135deg, #6366F1 0%, #4F46E5 50%, #4338CA 100%);
-//                         border-radius:14px; 
-//                         color:#FFFFFF; 
-//                         text-decoration:none; 
-//                         font-size:15px; 
+//                         border-radius:14px;
+//                         color:#FFFFFF;
+//                         text-decoration:none;
+//                         font-size:15px;
 //                         font-weight:700;
 //                         box-shadow: 0 10px 25px -5px rgba(99, 102, 241, 0.5), 0 4px 6px -2px rgba(99, 102, 241, 0.3);
 //                         letter-spacing:0.3px;
@@ -402,8 +402,6 @@
 //                         </td>
 //                     </tr>
 
-
-
 //                     <!-- Bottom Decorative Bar -->
 //                     <tr>
 //                         <td
@@ -433,6 +431,13 @@
 // </html>`
 // };
 
+const escapeHtml = (value = "") =>
+  String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 
 const createAcademyMailTemp = ({
   academyName,
@@ -442,12 +447,41 @@ const createAcademyMailTemp = ({
   colors,
   icon = "📖",
 }) => {
-  return ({ title, otp, text, username = "there", lang = "en" }) => {
+  return ({
+    title,
+    otp,
+    text,
+    username = "there",
+    lang = "en",
+    variant,
+    metadata = {},
+    actionUrl,
+    actionText,
+  }) => {
     const isAr = lang === "ar";
     const defaultTitle = isAr ? "تفعيل حسابك" : "Verify your account";
     const displayTitle = title || defaultTitle;
     const safeOtp = String(otp ?? "").trim();
     const otpDigits = safeOtp.split("");
+    const isSessionReminder = variant === "session_reminder";
+    const sessionDetails = [
+      {
+        label: isAr ? "الجلسة" : "Session",
+        value: metadata.sessionTitle,
+      },
+      {
+        label: isAr ? "المعلم" : "Teacher",
+        value: metadata.teacherName,
+      },
+      {
+        label: isAr ? "الوقت" : "Time",
+        value: metadata.sessionTime,
+      },
+    ].filter((item) => item.value);
+    const safeActionUrl =
+      actionUrl || process.env.FRONTEND_URL || "http://localhost:4200/#/";
+    const displayActionText =
+      actionText || isAr ? "الدخول إلى الأكاديمية ←" : "Go to Academy →";
 
     const otpBoxesHtml =
       otpDigits.length > 0
@@ -470,7 +504,7 @@ const createAcademyMailTemp = ({
               box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
             ">${digit}</div>
           </td>
-        `
+        `,
             )
             .join("")
         : "";
@@ -622,8 +656,8 @@ const createAcademyMailTemp = ({
                       ? "مطلوب التحقق"
                       : "Verification Required"
                     : isAr
-                    ? "مرحباً!"
-                    : "Hello!"
+                      ? "مرحباً!"
+                      : "Hello!"
                 }
               </p>
 
@@ -632,15 +666,19 @@ const createAcademyMailTemp = ({
               </h1>
 
               <p style="margin:0 0 28px 0; font-size:16px; line-height:1.7; color:${colors.muted}; text-align:center;">
-                ${isAr ? "مرحباً" : "Hi"} <strong style="color:${colors.dark};">${username}</strong>,
+                ${isAr ? "مرحباً" : "Hi"} <strong style="color:${colors.dark};">${escapeHtml(username)}</strong>,
                 ${
                   otp
                     ? isAr
                       ? `لقد تلقينا طلباً للتحقق من حسابك في ${academyDisplayName}. استخدم الرمز أدناه للمتابعة:`
                       : `we received a request to verify your ${academyDisplayName} account. Use the code below to continue:`
-                    : isAr
-                    ? `شكراً لوجودك معنا في ${academyDisplayName}.`
-                    : `thank you for being with ${academyDisplayName}.`
+                    : isSessionReminder
+                      ? isAr
+                        ? "هذه رسالة تذكير بموعد جلستك القادمة. راجع التفاصيل بالأسفل واستخدم زر الانضمام عند وقت الجلسة."
+                        : "this is a reminder for your upcoming session. Review the details below and use the join button when it is time."
+                      : isAr
+                        ? `شكراً لوجودك معنا في ${academyDisplayName}.`
+                        : `thank you for being with ${academyDisplayName}.`
                 }
               </p>
 
@@ -699,8 +737,47 @@ const createAcademyMailTemp = ({
               }
 
               ${
-                text
+                isSessionReminder
                   ? `
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto 20px auto;">
+                <tr>
+                  <td style="background:linear-gradient(145deg, ${colors.soft}, #ffffff); border-radius:18px; padding:24px; border:1px solid ${colors.light};">
+                    <p style="margin:0 0 16px 0; font-size:13px; color:${colors.primary}; font-weight:800; letter-spacing:1.2px; text-transform:uppercase; text-align:center;">
+                      ${isAr ? "تفاصيل الجلسة" : "Session Details"}
+                    </p>
+
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                      ${sessionDetails
+                        .map(
+                          (item) => `
+                      <tr>
+                        <td style="padding:10px 0; border-top:1px solid ${colors.light}; font-size:13px; color:${colors.muted}; font-weight:700; width:34%; ${isAr ? "text-align:right;" : "text-align:left;"}">
+                          ${escapeHtml(item.label)}
+                        </td>
+                        <td style="padding:10px 0; border-top:1px solid ${colors.light}; font-size:15px; color:${colors.dark}; font-weight:700; ${isAr ? "text-align:left;" : "text-align:right;"}">
+                          ${escapeHtml(item.value)}
+                        </td>
+                      </tr>
+                    `,
+                        )
+                        .join("")}
+                    </table>
+
+                    ${
+                      text
+                        ? `
+                    <p style="margin:16px 0 0 0; font-size:14px; color:${colors.primaryDark}; line-height:1.7; text-align:center;">
+                      ${escapeHtml(text)}
+                    </p>
+                    `
+                        : ""
+                    }
+                  </td>
+                </tr>
+              </table>
+              `
+                  : text
+                    ? `
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto 20px auto;">
                 <tr>
                   <td style="background:linear-gradient(145deg, ${colors.soft}, #ffffff); border-radius:16px; padding:24px; border:1px solid ${colors.light};">
@@ -711,13 +788,13 @@ const createAcademyMailTemp = ({
                 </tr>
               </table>
               `
-                  : ""
+                    : ""
               }
 
               <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:10px auto 0 auto;">
                 <tr>
                   <td align="center">
-                    <a href="${process.env.FRONTEND_URL || "http://localhost:4200"}/#/" target="_blank" style="
+                    <a href="${escapeHtml(safeActionUrl)}" target="_blank" style="
                       display:inline-block;
                       padding:16px 40px;
                       background:linear-gradient(135deg, ${colors.primary} 0%, ${colors.secondary} 55%, ${colors.accent} 100%);
@@ -729,7 +806,7 @@ const createAcademyMailTemp = ({
                       box-shadow:0 10px 25px -5px ${colors.shadow};
                       letter-spacing:0.3px;
                     ">
-                      ${isAr ? "الدخول إلى الأكاديمية ←" : "Go to Academy →"}
+                      ${escapeHtml(displayActionText)}
                     </a>
                   </td>
                 </tr>
@@ -804,8 +881,6 @@ const createAcademyMailTemp = ({
 </html>`;
   };
 };
-
-
 
 const waeiMailTemp = createAcademyMailTemp({
   academyName: "Waei Academy",

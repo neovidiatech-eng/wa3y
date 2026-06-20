@@ -117,11 +117,12 @@ export const createSchedule = asyncHandler(async (req, res, next) => {
     title,
     description,
     link,
-    notification_Time,
+    notification_Time = "10",
     notes,
     date,
     start_time,
   } = req.body;
+
   /* check if student and teacher exist */
   const [student, teacher, subject] = await Promise.all([
     db.findOne({
@@ -236,9 +237,12 @@ export const createSchedule = asyncHandler(async (req, res, next) => {
   } else if (notification_Time === notificationType[2]) {
     reminderTime = new Date(startTime.getTime() - 30 * 60 * 1000);
     notificationJobType = "before 30 minutes";
-  } else {
+  } else if (notification_Time === notificationType[3]) {
     reminderTime = new Date(startTime.getTime() - 60 * 60 * 1000);
     notificationJobType = "before 60 minutes";
+  } else {
+    reminderTime = new Date(startTime.getTime() - 5 * 60 * 1000);
+    notificationJobType = "before 5 minutes";
   }
 
   const now = new Date();
@@ -454,7 +458,11 @@ export const createRecurringSchedule = asyncHandler(async (req, res, next) => {
 
     // Queue notification jobs after successful transaction
     const now = new Date();
-    for (const { start_time: st, notification_Time: nt, index } of notificationJobs) {
+    for (const {
+      start_time: st,
+      notification_Time: nt,
+      index,
+    } of notificationJobs) {
       let reminderTime;
       let notificationJobType;
       if (nt === notificationType[1]) {

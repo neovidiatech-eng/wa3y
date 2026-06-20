@@ -19,12 +19,36 @@ export const PERMISSIONS_V2 = {
     VIEW_LATE_DISCOUNT: "settings:view_late_discount",
   },
 
-  // User Management
-  USERS: {
-    READ: "users:read",
-    CREATE: "users:create",
-    UPDATE: "users:update",
-    DELETE: "users:delete",
+  // Teachers Management
+  TEACHERS: {
+    READ: "teachers:read",
+    CREATE: "teachers:create",
+    UPDATE: "teachers:update",
+    DELETE: "teachers:delete",
+  },
+
+  // Students Management
+  STUDENTS: {
+    READ: "students:read",
+    CREATE: "students:create",
+    UPDATE: "students:update",
+    DELETE: "students:delete",
+  },
+
+  // Staff Management
+  STAFF: {
+    READ: "staff:read",
+    CREATE: "staff:create",
+    UPDATE: "staff:update",
+    DELETE: "staff:delete",
+  },
+
+  // Parents Management
+  PARENTS: {
+    READ: "parents:read",
+    CREATE: "parents:create",
+    UPDATE: "parents:update",
+    DELETE: "parents:delete",
   },
   
   // Role Management

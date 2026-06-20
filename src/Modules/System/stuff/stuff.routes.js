@@ -17,35 +17,35 @@ const router = Router();
 router.get(
   "/",
   authentication(),
-  authorizeResource("users"),
+  authorizeResource("staff"),
   validation(getAllStuffSchema),
   stuffController.getAllStuff,
 );
 router.get(
   "/:id",
   authentication(),
-  authorizeResource("users"),
+  authorizeResource("staff"),
   validation(getStuffByIdSchema),
   stuffController.getStuffById,
 );
 router.post(
   "/create",
   authentication(),
-  authorizeResource("users"),
+  authorizeResource("staff"),
   validation(createStuffUserSchema),
   stuffController.createStuffUser,
 );
 router.patch(
   "/update/:id",
   authentication(),
-  authorizeResource("users"),
+  authorizeResource("staff"),
   validation(updateStuffUserSchema),
   stuffController.updateStuffUser,
 );
 router.delete(
   "/delete/:id",
   authentication(),
-  authorizeResource("users"),
+  authorizeResource("staff"),
   validation(deleteStuffUserSchema),
   stuffController.deleteStuffUser,
 );

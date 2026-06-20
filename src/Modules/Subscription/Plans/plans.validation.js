@@ -5,14 +5,14 @@ export const createPlanSchema = {
   body: Joi.object({
     name_en: generalFeilds.name_en.required(),
     name_ar: generalFeilds.name_ar.required(),
-    description: generalFeilds.description.required(),
+    description: generalFeilds.description.allow("", null),
     price: generalFeilds.price.required(),
     duration: generalFeilds.duration.required(),
     sessionsCount: generalFeilds.sessionsCount.required(),
     sessionTime: generalFeilds.sessionTime.required(),
     active: generalFeilds.active.required(),
     bestSeller: generalFeilds.bestSeller.required(),
-    features: generalFeilds.features.required(),
+    features: generalFeilds.features.allow("", null),
     currencyId: generalFeilds.id.required(),
   }),
 };

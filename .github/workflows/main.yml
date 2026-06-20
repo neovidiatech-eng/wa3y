@@ -91,6 +91,12 @@ jobs:
             GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
             PORT=3009
             APP_PORT=3009
+            MAIL_HOST="mail.waaiacademy.com"
+            MAIL_PORT="465"
+            MAIL_USER="noreply@waaiacademy.com"
+            MAIL_PASS="Wa3y@1452"
+            MAIL_FROM="noreply@waaiacademy.com"
+            FRONTEND_URL="https://dashboard.hedaya-academy.com"
             CORS_ORIGINS=http://localhost:3000,http://localhost:5173,https://dashboard.hedaya-academy.com
             NODE_ENV=production
             PGADMIN_DEFAULT_EMAIL=${{ secrets.PGADMIN_DEFAULT_EMAIL }}
