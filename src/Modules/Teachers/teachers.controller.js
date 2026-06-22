@@ -9,6 +9,12 @@ import {
   decryptUserSensitiveFields,
   encryptPassword,
 } from "../../Utils/Security/index.js";
+import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc.js";
+import timezone from "dayjs/plugin/timezone.js";
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 export const getAllTeachers = asyncHandler(async (req, res, next) => {
   const { search, page = 1, limit = 10, active } = req.query;
@@ -207,11 +213,141 @@ export const getTeacher = asyncHandler(async (req, res, next) => {
 
   await decryptUserSensitiveFields(teacher.user);
 
+  // Calculate teacher stats
+  const uniqueStudents = await db.findMany({
+    model: "schedule",
+    where: { teacherId: id },
+    distinct: ["studentId"],
+    select: { studentId: true },
+  });
+  const totalStudents = uniqueStudents.length;
+
+  const completedSessionsCount = await db.count({
+    model: "schedule",
+    where: {
+      teacherId: id,
+      status: "completed",
+    },
+  });
+
+  const tz = req.timezone || "Africa/Cairo";
+  const nowLocal = dayjs().tz(tz);
+  const startOfDay = nowLocal.startOf("day").utc().toDate();
+  const endOfDay = nowLocal.endOf("day").utc().toDate();
+
+  const todaySessionsCount = await db.count({
+    model: "schedule",
+    where: {
+      teacherId: id,
+      start_time: {
+        gte: startOfDay,
+        lte: endOfDay,
+      },
+    },
+  });
+
+  const upcomingSessionsCount = await db.count({
+    model: "schedule",
+    where: {
+      teacherId: id,
+      status: "scheduled",
+      start_time: {
+        gte: nowLocal.utc().toDate(),
+      },
+    },
+  });
+
+  // Calculate durations and earnings
+  const completedSchedules = await db.findMany({
+    model: "schedule",
+    where: {
+      teacherId: id,
+      status: "completed",
+    },
+    select: {
+      start_time: true,
+      end_time: true,
+    },
+  });
+
+  const pendingSchedules = await db.findMany({
+    model: "schedule",
+    where: {
+      teacherId: id,
+      status: { in: ["scheduled", "ongoing"] },
+    },
+    select: {
+      start_time: true,
+      end_time: true,
+    },
+  });
+
+  const calculateHours = (schedules) => {
+    return schedules.reduce((total, s) => {
+      const diffMs = new Date(s.end_time) - new Date(s.start_time);
+      const hours = diffMs / (1000 * 60 * 60);
+      return total + hours;
+    }, 0);
+  };
+
+  const completedHours = calculateHours(completedSchedules);
+  const pendingHours = calculateHours(pendingSchedules);
+  const totalHours = completedHours + pendingHours;
+
+  const completedEarnings = completedHours * teacher.hour_price;
+  const pendingEarnings = pendingHours * teacher.hour_price;
+
+  const wallet = await db.findFirst({
+    model: "Wallet",
+    where: {
+      userId: teacher.user_id,
+      type: "teacher",
+    },
+  });
+  const availableBalance = wallet ? wallet.balance : 0;
+
+  const pendingWithdrawalsResult = await db.findMany({
+    model: "WithdrawalRequest",
+    where: {
+      teacherId: teacher.user_id,
+      status: "pending",
+    },
+    select: {
+      amount: true,
+    },
+  });
+  const pendingWithdrawals = pendingWithdrawalsResult.reduce((sum, w) => sum + w.amount, 0);
+
+  const totalDue = availableBalance + pendingEarnings;
+  const totalEarnings = completedEarnings + pendingEarnings;
+
+  const teacherData = {
+    ...teacher,
+    stats: {
+      totalStudents,
+      completedSessions: completedSessionsCount,
+      todaySessions: todaySessionsCount,
+      upcomingSessions: upcomingSessionsCount,
+      financials: {
+        totalHours,
+        hourPrice: teacher.hour_price,
+        totalDue,
+        totalEarnings,
+        completedEarnings,
+        completedHours,
+        pendingEarnings,
+        pendingHours,
+        availableBalance,
+        pendingWithdrawals,
+      },
+    },
+  };
+
   return successResponse({
     res,
     req,
     message: "FETCH_SUCCESS",
-    data: teacher,
+    data: teacherData,
   });
 });
 
