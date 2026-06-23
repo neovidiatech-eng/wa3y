@@ -619,9 +619,8 @@ const createAcademyMailTemp = ({
 
                 <tr>
                   <td style="font-size:0; line-height:0;">
-                    <svg viewBox="0 0 600 40" style="display:block; width:100%;">
-                      <path d="M0,40 L0,20 Q150,0 300,20 T600,20 L600,40 Z" fill="#FFFFFF" />
-                    </svg>
+                    <img src="https://dashboard.waaiacademy.com/logo.png" alt="${academyDisplayName}"
+                      style="width: 100%;">
                   </td>
                 </tr>
               </table>
