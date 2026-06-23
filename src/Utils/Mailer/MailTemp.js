@@ -645,8 +645,8 @@ const createAcademyMailTemp = ({
                     ">
                       ${
                         logoUrl
-                          ? `<img src="${logoUrl}" alt="${academyDisplayName}" width="50" height="50" style="vertical-align:middle; width:50px; height:50px; display:inline-block;" />`
-                          : ""
+                          ? `<img src="${logoUrl}" alt="${academyDisplayName}" width="80" height="80" style="vertical-align:middle; width:80px; height:80px; display:inline-block;" />`
+                          : `<span style="font-size:42px;">WA</span>`
                       }
                     </div>
                   </td>
