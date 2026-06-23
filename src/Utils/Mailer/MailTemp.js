@@ -445,7 +445,7 @@ const createAcademyMailTemp = ({
   taglineEn,
   taglineAr,
   colors,
-  icon = "📖",
+  logoUrl,
 }) => {
   return ({
     title,
@@ -619,8 +619,9 @@ const createAcademyMailTemp = ({
 
                 <tr>
                   <td style="font-size:0; line-height:0;">
-                    <img src="https://dashboard.waaiacademy.com/logo.png" alt="${academyDisplayName}"
-                      style="width: 100%;">
+                    <svg viewBox="0 0 600 40" style="display:block; width:100%;">
+                      <path d="M0,40 L0,20 Q150,0 300,20 T600,20 L600,40 Z" fill="#FFFFFF" />
+                    </svg>
                   </td>
                 </tr>
               </table>
@@ -642,7 +643,11 @@ const createAcademyMailTemp = ({
                       text-align:center;
                       line-height:90px;
                     ">
-                      <span style="font-size:42px;">${icon}</span>
+                      ${
+                        logoUrl
+                          ? `<img src="${logoUrl}" alt="${academyDisplayName}" width="50" height="50" style="vertical-align:middle; width:50px; height:50px; display:inline-block;" />`
+                          : ""
+                      }
                     </div>
                   </td>
                 </tr>
@@ -886,7 +891,7 @@ const waeiMailTemp = createAcademyMailTemp({
   academyNameAr: "أكاديمية وعي",
   taglineEn: "Learning with Awareness and Purpose",
   taglineAr: "تعلم بوعي وهدف",
-  icon: "🌿",
+  logoUrl: "https://dashboard.waaiacademy.com/logo.png",
   colors: {
     primary: "#0F766E",
     primaryDark: "#115E59",
