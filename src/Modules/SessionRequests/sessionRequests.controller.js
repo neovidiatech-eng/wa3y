@@ -5,6 +5,12 @@ import {
 } from "../../Utils/Response.js";
 import * as db from "../../database/dbService.js";
 import { normalizeDate, formatSchedules } from "../../Utils/Helpers.js";
+import {
+  addNotificationJob,
+  removeNotificationJob,
+} from "../../Utils/Workers/notifications.js";
+import { notificationType } from "../../Utils/Enums/sessions.js";
+
 
 // 1. Create Request (Teacher/Student)
 export const createRequest = asyncHandler(async (req, res, next) => {
@@ -94,6 +100,9 @@ export const approveRequest = asyncHandler(async (req, res, next) => {
   const { adminNotes } = req.body;
   const adminId = req.user.id;
 
+  let oldSessionIdToRemove = null;
+  let newSessionToAdd = null;
+
   const request = await db.findOne({
     model: "session_request",
     where: { id },
@@ -177,7 +186,7 @@ export const approveRequest = asyncHandler(async (req, res, next) => {
           end_time: endTime,
           notes: requestedData.suggested_notes || oldSession.notes,
           rescheduledFromId: oldSession.id,
-          status: "rescheduled",
+          status: "scheduled",
         },
       });
 
@@ -186,6 +195,14 @@ export const approveRequest = asyncHandler(async (req, res, next) => {
         model: "schedule",
         where: { id: oldSession.id },
       });
+
+      oldSessionIdToRemove = oldSession.id;
+      newSessionToAdd = {
+        id: newSession.id,
+        studentId: oldSession.studentId,
+        startTime,
+        notification_Time: requestedData.notification_Time,
+      };
     } else if (type === "cancel" && sessionId) {
       await tx.updateOne({
         model: "schedule",
@@ -203,6 +220,8 @@ export const approveRequest = asyncHandler(async (req, res, next) => {
         where: { id: session.studentId },
         data: { sessions_remaining: { increment: 1 } },
       });
+
+      oldSessionIdToRemove = sessionId;
     } else if (type === "new_session") {
       const startTime = normalizeDate(requestedData.new_start_time, req.timezone);
       const endTime = normalizeDate(requestedData.new_end_time, req.timezone);
@@ -233,7 +252,7 @@ export const approveRequest = asyncHandler(async (req, res, next) => {
         throw new Error("SESSION_CONFLICT");
       }
 
-      await tx.create({
+      const newSession = await tx.create({
         model: "schedule",
         data: {
           teacherId,
@@ -248,6 +267,13 @@ export const approveRequest = asyncHandler(async (req, res, next) => {
           status: "scheduled",
         },
       });
+
+      newSessionToAdd = {
+        id: newSession.id,
+        studentId,
+        startTime,
+        notification_Time: requestedData.notification_Time,
+      };
     } else if (type === "absence_correction" && sessionId) {
       await tx.updateOne({
         model: "schedule",
@@ -268,6 +294,47 @@ export const approveRequest = asyncHandler(async (req, res, next) => {
       },
     });
   });
+
+  // Post-transaction Redis operations for notification jobs
+  if (oldSessionIdToRemove) {
+    try {
+      await removeNotificationJob(oldSessionIdToRemove);
+    } catch (err) {
+      console.error(`Failed to remove notification job for session ${oldSessionIdToRemove}:`, err);
+    }
+  }
+
+  if (newSessionToAdd) {
+    try {
+      const { id: newSessionId, studentId, startTime, notification_Time } = newSessionToAdd;
+      const effectiveNotificationTime = notification_Time || "60";
+
+      let reminderTime;
+      let notificationJobType;
+      if (effectiveNotificationTime === notificationType[1]) {
+        reminderTime = new Date(startTime.getTime() - 10 * 60 * 1000);
+        notificationJobType = "before 10 minutes";
+      } else if (effectiveNotificationTime === notificationType[2]) {
+        reminderTime = new Date(startTime.getTime() - 30 * 60 * 1000);
+        notificationJobType = "before 30 minutes";
+      } else {
+        reminderTime = new Date(startTime.getTime() - 60 * 60 * 1000);
+        notificationJobType = "before 60 minutes";
+      }
+
+      const now = new Date();
+      if (reminderTime > now) {
+        await addNotificationJob({
+          scheduleId: newSessionId,
+          studentId,
+          type: notificationJobType,
+          sendAt: reminderTime,
+        });
+      }
+    } catch (err) {
+      console.error("Failed to add notification job for new session:", err);
+    }
+  }
 
   return successResponse({
     res,

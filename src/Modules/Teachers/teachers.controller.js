@@ -250,7 +250,7 @@ export const getTeacher = asyncHandler(async (req, res, next) => {
     model: "schedule",
     where: {
       teacherId: id,
-      status: "scheduled",
+      status: { in: ["scheduled", "planned"] },
       start_time: {
         gte: nowLocal.utc().toDate(),
       },
@@ -274,7 +274,7 @@ export const getTeacher = asyncHandler(async (req, res, next) => {
     model: "schedule",
     where: {
       teacherId: id,
-      status: { in: ["scheduled", "ongoing"] },
+      status: { in: ["scheduled", "ongoing", "planned"] },
     },
     select: {
       start_time: true,

@@ -843,9 +843,9 @@ export const updateSchedule = asyncHandler(async (req, res, next) => {
   if (scheduleUpdated || notification_Time || otherData.status) {
     await removeNotificationJob(id);
 
-    // Only add a new job if the session is still "planned"
+    // Only add a new job if the session is still "planned" or "scheduled"
     const currentStatus = otherData.status || updatedSchedule.status;
-    if (currentStatus === "planned") {
+    if (currentStatus === "planned" || currentStatus === "scheduled") {
       const effectiveNotificationTime = notification_Time || "60";
 
       let reminderTime;
@@ -981,7 +981,7 @@ export const joinSession = asyncHandler(async (req, res, next) => {
     data: updateData,
   });
 
-  if (session.status === "scheduled") {
+  if (session.status === "scheduled" || session.status === "planned") {
     await db.updateOne({
       model: "schedule",
       where: { id },
