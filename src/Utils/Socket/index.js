@@ -8,11 +8,19 @@ import { getMessage } from "../i18n.js";
  * Handles real-time communication events
  */
 
+let ioInstance;
+
+export const getIO = () => ioInstance;
+
 export const init_io = (io) => {
+  ioInstance = io;
   io.on("connection", async (socket) => {
     try {
       const user = socket.user;
       if (!user) return socket.disconnect();
+
+      // Join user-specific room
+      socket.join(`user_${user.id}`);
 
       const acceptLang = socket.handshake.headers["accept-language"] || socket.handshake.auth?.lang;
       let lang = "en";
@@ -34,10 +42,11 @@ export const init_io = (io) => {
         socket.broadcast.emit("user:status", { userId: user.id, status: "online" });
       }
       // 2. Admin Special Handling: Auto-join all rooms
-      if (user.role.name === "admin") {
+      if (["admin", "super_admin"].includes(user.role.name)) {
         const allConversations = await db.findMany({ model: "Conversation", select: { id: true } });
         allConversations.forEach(conv => socket.join(`conv_${conv.id}`));
-        console.log(`Admin ${user.name} joined all conversation rooms`);
+        socket.join("user_admin");
+        console.log(`Admin ${user.name} joined all conversation rooms and user_admin`);
       }
 
       /**

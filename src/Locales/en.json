@@ -394,5 +394,9 @@
   "TOKEN_MISSED_OR_INVALID": "Token is missing or invalid",
   "TOKEN_SIGNATURE_INVALID": "Token signature is invalid",
   "TOKEN_USER_NOT_FOUND": "Token is valid but the associated user was not found",
-  "STAFF_NOT_FOUND": "Staff member not found"
+  "STAFF_NOT_FOUND": "Staff member not found",
+  "TARGET_TYPE_INVALID": "Target type must be all, teachers, students, parents, or single",
+  "TARGET_TYPE_REQUIRED": "Target type is required",
+  "NOTIFICATION_NOT_FOUND": "Notification not found",
+  "NO_TARGET_USERS_FOUND": "No target users found for this notification"
 }

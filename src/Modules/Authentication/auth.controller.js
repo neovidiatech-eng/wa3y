@@ -2,6 +2,7 @@ import { googleVerify } from "../../Utils/GoogleClient/index.js";
 import sendEmailEvent from "../../Utils/Mailer/sendEmailEvent.js";
 import { redis } from "../../Utils/Radis/Connection.js";
 import * as db from "../../database/dbService.js";
+import { createAdminNotification } from "../Notifications/notifications.controller.js";
 
 import {
   asyncHandler,
@@ -343,11 +344,21 @@ export const verifyAccount = asyncHandler(async (req, res, next) => {
     model: "user",
     where: { email },
     data: { confirmAt: new Date().toISOString() },
+    include: { role: true },
   });
 
   if (!user) {
     return errorResponse({ req, next, message: "USER_NOT_FOUND", status: 404 });
   }
+
+  if (user?.role?.name === "student") {
+    await createAdminNotification({
+      title: "New Student Registered",
+      message: `A new student has registered: ${user.name} (${user.email}).`,
+      type: "new_student",
+    });
+  }
+
   return successResponse({
     res,
     req,
@@ -527,6 +538,12 @@ export const googleSignUp = asyncHandler(async (req, res, next) => {
           planId: null,
         },
       });
+    });
+
+    await createAdminNotification({
+      title: "New Student Signed Up (Google)",
+      message: `A new student signed up via Google: ${fullName} (${verify.email}).`,
+      type: "new_student",
     });
   }
 

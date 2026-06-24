@@ -10,6 +10,7 @@ import {
   removeNotificationJob,
 } from "../../Utils/Workers/notifications.js";
 import { notificationType } from "../../Utils/Enums/sessions.js";
+import { createAdminNotification } from "../Notifications/notifications.controller.js";
 
 
 // 1. Create Request (Teacher/Student)
@@ -56,6 +57,17 @@ export const createRequest = asyncHandler(async (req, res, next) => {
       userId: requesterId,
       changes: { type, sessionId },
     },
+  });
+
+  const requester = await db.findOne({
+    model: "user",
+    where: { id: requesterId }
+  });
+
+  await createAdminNotification({
+    title: "New Session Request",
+    message: `A new session request (${type}) has been submitted by ${requester?.name || "User"} (${requesterRole}). Reason: ${reason || "None"}.`,
+    type: "session_request_created",
   });
 
   return successResponse({
@@ -336,6 +348,17 @@ export const approveRequest = asyncHandler(async (req, res, next) => {
     }
   }
 
+  const requester = await db.findOne({
+    model: "user",
+    where: { id: request.requesterId }
+  });
+
+  await createAdminNotification({
+    title: "Session Request Approved",
+    message: `The session request (${request.type}) by ${requester?.name || "User"} has been approved.`,
+    type: "session_request_approved",
+  });
+
   return successResponse({
     res,
     req,
@@ -372,6 +395,17 @@ export const rejectRequest = asyncHandler(async (req, res, next) => {
     model: "session_request",
     where: { id },
     data: { status: "rejected", adminId, adminNotes },
+  });
+
+  const requester = await db.findOne({
+    model: "user",
+    where: { id: request.requesterId }
+  });
+
+  await createAdminNotification({
+    title: "Session Request Rejected",
+    message: `The session request (${request.type}) by ${requester?.name || "User"} has been rejected.`,
+    type: "session_request_rejected",
   });
 
   return successResponse({

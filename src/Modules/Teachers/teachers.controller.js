@@ -9,6 +9,7 @@ import {
   decryptUserSensitiveFields,
   encryptPassword,
 } from "../../Utils/Security/index.js";
+import { createAdminNotification } from "../Notifications/notifications.controller.js";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc.js";
 import timezone from "dayjs/plugin/timezone.js";
@@ -185,6 +186,12 @@ export const createTeacher = asyncHandler(async (req, res, next) => {
     });
 
     return teacher;
+  });
+
+  await createAdminNotification({
+    title: "New Teacher Created",
+    message: `A new teacher account has been created: ${name} (${email}).`,
+    type: "new_teacher",
   });
 
   return successResponse({

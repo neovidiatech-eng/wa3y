@@ -9,6 +9,7 @@ import {
   decryptUserSensitiveFields,
   encryptPassword,
 } from "../../Utils/Security/index.js";
+import { createAdminNotification } from "../Notifications/notifications.controller.js";
 
 export const getAllStudents = asyncHandler(async (req, res, next) => {
   const { search, country, plans, page = 1, limit = 10, active } = req.query;
@@ -229,6 +230,12 @@ export const createStudent = asyncHandler(async (req, res, next) => {
       where: { id: systemWallet.id },
       data: { balance: { increment: amount } },
     });
+  });
+
+  await createAdminNotification({
+    title: "New Student Account Created",
+    message: `A new student account has been created by admin: ${name} (${email}).`,
+    type: "new_student",
   });
 
   return successResponse({

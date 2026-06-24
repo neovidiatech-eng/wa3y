@@ -394,5 +394,9 @@
   "TOKEN_MISSED_OR_INVALID": "الرمز مفقود أو غير صحيح",
   "TOKEN_SIGNATURE_INVALID": "توقيع الرمز غير صحيح",
   "TOKEN_USER_NOT_FOUND": "الرمز صحيح لكن المستخدم المرتبط به غير موجود",
-  "STAFF_NOT_FOUND": "موظف الستاف غير موجود"
+  "STAFF_NOT_FOUND": "موظف الستاف غير موجود",
+  "TARGET_TYPE_INVALID": "نوع المستهدف يجب أن يكون: الكل، المعلمين، الطلاب، أولياء الأمور، أو مستخدم فردي",
+  "TARGET_TYPE_REQUIRED": "نوع المستهدف مطلوب",
+  "NOTIFICATION_NOT_FOUND": "الإشعار غير موجود",
+  "NO_TARGET_USERS_FOUND": "لم يتم العثور على مستخدمين مستهدفين لهذا الإشعار"
 }

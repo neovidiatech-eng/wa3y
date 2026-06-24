@@ -27,6 +27,7 @@ import {
 } from "../../Utils/Date/time.js";
 import dayjs from "dayjs";
 import { getSettingsData } from "../Settings/settings.controller.js";
+import { createAdminNotification } from "../Notifications/notifications.controller.js";
 
 /* ------------------------------------------------------------------ */
 /*            Admin creates multiple sessions in one request            */
@@ -254,6 +255,16 @@ export const createSchedule = asyncHandler(async (req, res, next) => {
       sendAt: reminderTime,
     });
   }
+
+  const [studentInfo, teacherInfo] = await Promise.all([
+    db.findOne({ model: "student", where: { id: studentId }, include: { user: true } }),
+    db.findOne({ model: "teacher", where: { id: teacherId }, include: { user: true } }),
+  ]);
+  await createAdminNotification({
+    title: "Session Scheduled",
+    message: `A new session "${title}" has been scheduled for student: ${studentInfo?.user?.name || "Student"} with teacher: ${teacherInfo?.user?.name || "Teacher"}.`,
+    type: "session_created",
+  });
 
   return successResponse({
     res,
@@ -486,6 +497,18 @@ export const createRecurringSchedule = asyncHandler(async (req, res, next) => {
     }
   }
 
+  if (createdSchedules.length > 0) {
+    const [studentInfo, teacherInfo] = await Promise.all([
+      db.findOne({ model: "student", where: { id: studentId }, include: { user: true } }),
+      db.findOne({ model: "teacher", where: { id: teacherId }, include: { user: true } }),
+    ]);
+    await createAdminNotification({
+      title: "Recurring Sessions Scheduled",
+      message: `${createdSchedules.length} recurring sessions have been scheduled for student: ${studentInfo?.user?.name || "Student"} with teacher: ${teacherInfo?.user?.name || "Teacher"}.`,
+      type: "session_created",
+    });
+  }
+
   return successResponse({
     res,
     req,
@@ -653,6 +676,16 @@ export const deleteSchedule = asyncHandler(async (req, res, next) => {
     });
   });
 
+  const [studentInfo, teacherInfo] = await Promise.all([
+    db.findOne({ model: "student", where: { id: schedule.studentId }, include: { user: true } }),
+    db.findOne({ model: "teacher", where: { id: schedule.teacherId }, include: { user: true } }),
+  ]);
+  await createAdminNotification({
+    title: "Session Cancelled",
+    message: `Session "${schedule.title}" has been cancelled/deleted for student: ${studentInfo?.user?.name || "Student"} with teacher: ${teacherInfo?.user?.name || "Teacher"}.`,
+    type: "session_cancelled",
+  });
+
   return successResponse({
     res,
     req,
@@ -718,6 +751,23 @@ export const deleteRecurringGroup = asyncHandler(async (req, res, next) => {
       where: { parent_recurring_id },
     });
   });
+
+  const firstSchedule = await db.findFirst({
+    model: "schedule",
+    where: { parent_recurring_id },
+    include: {
+      student: { include: { user: true } },
+      teacher: { include: { user: true } },
+    },
+  });
+
+  if (firstSchedule) {
+    await createAdminNotification({
+      title: "Recurring Sessions Cancelled",
+      message: `All recurring sessions under group "${parent_recurring_id}" have been cancelled/deleted for student: ${firstSchedule.student?.user?.name || "Student"} with teacher: ${firstSchedule.teacher?.user?.name || "Teacher"}.`,
+      type: "session_cancelled",
+    });
+  }
 
   return successResponse({
     res,
@@ -872,6 +922,16 @@ export const updateSchedule = asyncHandler(async (req, res, next) => {
       }
     }
   }
+
+  const [studentInfo, teacherInfo] = await Promise.all([
+    db.findOne({ model: "student", where: { id: schedule.studentId }, include: { user: true } }),
+    db.findOne({ model: "teacher", where: { id: schedule.teacherId }, include: { user: true } }),
+  ]);
+  await createAdminNotification({
+    title: "Session Rescheduled/Updated",
+    message: `Session "${updatedSchedule.title}" has been updated/rescheduled for student: ${studentInfo?.user?.name || "Student"} with teacher: ${teacherInfo?.user?.name || "Teacher"}.`,
+    type: "session_updated",
+  });
 
   return successResponse({
     res,
@@ -1337,7 +1397,7 @@ async function finalizeSession(scheduleId, t) {
     where: { id: scheduleId },
     include: {
       scheduleLogs: true,
-      student: true,
+      student: { include: { user: true } },
       teacher: { include: { user: true } },
     },
   });
@@ -1371,6 +1431,12 @@ async function finalizeSession(scheduleId, t) {
           : `The session ${session.title} was marked as missed.`,
         type: "session_missed",
       },
+    });
+
+    await createAdminNotification({
+      title: "Session Missed",
+      message: `The session "${session.title}" between student: ${session.student.user?.name || "Student"} and teacher: ${session.teacher.user?.name || "Teacher"} was missed.`,
+      type: "session_missed",
     });
   }
 }
