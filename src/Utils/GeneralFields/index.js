@@ -28,6 +28,9 @@ export const generalFeilds = {
     "any.required": "Role name is required",
   }),
   url: Joi.string().uri(),
+  fcmToken: Joi.string()
+    .min(50)
+    .max(500),
 
   permission_name: Joi.string().min(3).max(32).messages({
     "string.base": "Permission name must be a string",

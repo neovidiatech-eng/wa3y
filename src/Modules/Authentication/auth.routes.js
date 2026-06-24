@@ -11,6 +11,9 @@ import {
   
   resendOtpSchema,
   resetPasswordSchema,
+  
+  saveFCM,
+  
   verifiyCodeSchema,
 } from "./auth.validation.js";
 import { authentication } from "../../Middlewares/Authentication.js";
@@ -55,5 +58,6 @@ router.patch(
 );
 
 router.get("/getLogs",authentication(),authorize(PERMISSIONS_V2.DASHBOARD.READ), auth.getLogs);
+router.patch("/save-fcm",authentication(),validation(saveFCM),auth.saveFCM);
 
 export default router;

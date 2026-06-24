@@ -27,7 +27,7 @@ import {
 } from "../../Utils/Date/time.js";
 import dayjs from "dayjs";
 import { getSettingsData } from "../Settings/settings.controller.js";
-import { createAdminNotification } from "../Notifications/notifications.controller.js";
+import { createAdminNotification, createNotification } from "../Notifications/notifications.controller.js";
 
 /* ------------------------------------------------------------------ */
 /*            Admin creates multiple sessions in one request            */
@@ -1022,15 +1022,12 @@ export const joinSession = asyncHandler(async (req, res, next) => {
     const isLate = rules.some((r) => diffMinutes >= r.lateMinutes);
     if (isLate) {
       updateData.isTeacherLate = true;
-      // Notify Admin (Simple record in notification table)
-      await db.create({
-        model: "notification",
-        data: {
-          userId: "admin", // Placeholder or fetch actual admin
-          title: req.t("NOTIFICATION_TEACHER_LATE_TITLE"),
-          message: req.t("NOTIFICATION_TEACHER_LATE_MSG", { id }),
-          type: "teacher_late",
-        },
+      // Notify Admin
+      await createNotification({
+        userId: "admin",
+        title: req.t("NOTIFICATION_TEACHER_LATE_TITLE"),
+        message: req.t("NOTIFICATION_TEACHER_LATE_MSG", { id }),
+        type: "teacher_late",
       });
     }
   }
@@ -1059,16 +1056,13 @@ export const joinSession = asyncHandler(async (req, res, next) => {
   });
 
   if (targetUser?.user?.id) {
-    await db.create({
-      model: "notification",
-      data: {
-        userId: targetUser.user.id,
-        title: req.t("NOTIFICATION_SESSION_JOINED_TITLE"),
-        message: req.t("NOTIFICATION_SESSION_JOINED_MSG", {
-          role: role === "student" ? req.t("STUDENT") : req.t("TEACHER"),
-        }),
-        type: "session_joined",
-      },
+    await createNotification({
+      userId: targetUser.user.id,
+      title: req.t("NOTIFICATION_SESSION_JOINED_TITLE"),
+      message: req.t("NOTIFICATION_SESSION_JOINED_MSG", {
+        role: role === "student" ? req.t("STUDENT") : req.t("TEACHER"),
+      }),
+      type: "session_joined",
     });
   }
 
@@ -1368,14 +1362,11 @@ export const submitReview = asyncHandler(async (req, res, next) => {
 
   await updateAverageRating(revieweeId);
 
-  await db.create({
-    model: "notification",
-    data: {
-      userId: revieweeId,
-      title: req.t("NOTIFICATION_REVIEW_RECEIVED_TITLE"),
-      message: req.t("NOTIFICATION_REVIEW_RECEIVED_MSG", { rating }),
-      type: "review_received",
-    },
+  await createNotification({
+    userId: revieweeId,
+    title: req.t("NOTIFICATION_REVIEW_RECEIVED_TITLE"),
+    message: req.t("NOTIFICATION_REVIEW_RECEIVED_MSG", { rating }),
+    type: "review_received",
   });
 
   return successResponse({
@@ -1421,16 +1412,13 @@ async function finalizeSession(scheduleId, t) {
 
   // Notify if missed
   if (newStatus === "missed") {
-    await db.create({
-      model: "notification",
-      data: {
-        userId: session.student.user_id,
-        title: t ? t("NOTIFICATION_SESSION_MISSED_TITLE") : "Session Missed",
-        message: t
-          ? t("NOTIFICATION_SESSION_MISSED_MSG", { title: session.title })
-          : `The session ${session.title} was marked as missed.`,
-        type: "session_missed",
-      },
+    await createNotification({
+      userId: session.student.user_id,
+      title: t ? t("NOTIFICATION_SESSION_MISSED_TITLE") : "Session Missed",
+      message: t
+        ? t("NOTIFICATION_SESSION_MISSED_MSG", { title: session.title })
+        : `The session ${session.title} was marked as missed.`,
+      type: "session_missed",
     });
 
     await createAdminNotification({

@@ -90,3 +90,14 @@ export const resetPasswordSchema = {
     })
     .required(),
 };
+
+export const saveFCM = {
+  body: Joi.object()
+    .keys({
+      fcmToken: generalFeilds.fcmToken.required().messages({
+        "any.required": "FCM_TOKEN_REQUIRED",
+        "string.empty": "FCM_TOKEN_REQUIRED",
+      }),
+    })
+    .required(),
+};

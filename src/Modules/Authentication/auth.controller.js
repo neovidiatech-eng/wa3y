@@ -705,3 +705,21 @@ export const getLogs = asyncHandler(async (req, res, next) => {
     message: "FETCH_SUCCESS",
   });
 });
+
+
+export const saveFCM = asyncHandler(async (req, res, next) => {
+  const { fcmToken } = req.body;
+
+  await db.updateOne({
+    model: "user",
+    where: { id: req.user.id },
+    data: { fcmToken },
+  });
+  
+  return successResponse({
+    res,
+    req,
+    status: 200,
+    message: "FCM_TOKEN_SAVED_SUCCESS",
+  });
+});

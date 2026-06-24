@@ -12,6 +12,16 @@ export const getAdminNotifications = {
   }).optional(),
 };
 
+export const getUserNotifications = {
+  query: joi.object({
+    page: generalFeilds.page.optional(),
+    limit: generalFeilds.limit.optional(),
+    isRead: joi.boolean().optional(),
+    search: generalFeilds.search.optional(),
+    type: joi.string().max(32).optional(),
+  }).optional(),
+};
+
 export const sendNotification = {
   body: joi.object({
     title: joi.string().min(3).max(100).required().messages({

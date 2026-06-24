@@ -1,6 +1,6 @@
 import { asyncHandler, successResponse, errorResponse } from "../../Utils/Response.js";
 import * as db from "../../database/dbService.js";
-import { getIO } from "../../Utils/Socket/index.js";
+import { sendPushNotification } from "../../Utils/Firebase/firebase.js";
 
 // GET /admin/notifications
 export const getAdminNotifications = asyncHandler(async (req, res, next) => {
@@ -258,16 +258,25 @@ export const sendNotification = asyncHandler(async (req, res, next) => {
     data: notificationData,
   });
 
-  // Real-time socket push to target users
-  const io = getIO();
-  if (io) {
-    targetUserIds.forEach(uid => {
-      io.to(`user_${uid}`).emit("notification", {
-        title,
-        message,
+  // Send Firebase push notifications
+  const usersWithTokens = await db.findMany({
+    model: "user",
+    where: {
+      id: { in: targetUserIds },
+      fcmToken: { not: null, not: "" },
+    },
+    select: { fcmToken: true },
+  });
+
+  const tokens = usersWithTokens.map(u => u.fcmToken).filter(Boolean);
+
+  if (tokens.length > 0) {
+    await sendPushNotification(tokens, {
+      title,
+      body: message,
+      data: {
         type: type || "system_broadcast",
-        createdAt: new Date(),
-      });
+      },
     });
   }
 
@@ -282,25 +291,232 @@ export const sendNotification = asyncHandler(async (req, res, next) => {
   });
 });
 
-export const createAdminNotification = async ({ title, message, type }) => {
+export const createNotification = async ({ userId, title, message, type }) => {
   try {
     const notification = await db.create({
       model: "notification",
       data: {
-        userId: "admin",
+        userId,
         title,
         message,
         type,
       },
     });
 
-    const io = getIO();
-    if (io) {
-      io.to("user_admin").emit("notification", notification);
+    if (userId === "admin") {
+      // Find all admin / super_admin users with active status and an FCM token
+      const adminRoles = await db.findMany({
+        model: "role",
+        where: {
+          name: { in: ["admin", "super_admin"] },
+        },
+        select: { id: true },
+      });
+      
+      const adminRoleIds = adminRoles.map(r => r.id);
+      
+      const admins = await db.findMany({
+        model: "user",
+        where: {
+          roleId: { in: adminRoleIds },
+          status: "active",
+          fcmToken: { not: null, not: "" },
+        },
+        select: { fcmToken: true },
+      });
+      
+      const adminTokens = admins.map(a => a.fcmToken).filter(Boolean);
+      if (adminTokens.length > 0) {
+        await sendPushNotification(adminTokens, {
+          title,
+          body: message,
+          data: {
+            id: notification.id,
+            type: type || "system",
+            createdAt: notification.createdAt.toISOString(),
+          },
+        });
+      }
+    } else {
+      // Find user fcmToken
+      const user = await db.findOne({
+        model: "user",
+        where: { id: userId },
+        select: { fcmToken: true },
+      });
+
+      if (user?.fcmToken) {
+        await sendPushNotification(user.fcmToken, {
+          title,
+          body: message,
+          data: {
+            id: notification.id,
+            type: type || "system",
+            createdAt: notification.createdAt.toISOString(),
+          },
+        });
+      }
     }
+
     return notification;
   } catch (error) {
-    console.error("Failed to create admin notification:", error);
+    console.error("Failed to create notification:", error);
   }
 };
+
+export const createAdminNotification = async ({ title, message, type }) => {
+  return createNotification({ userId: "admin", title, message, type });
+};
+
+// GET /notifications
+export const getUserNotifications = asyncHandler(async (req, res, next) => {
+  const { page = 1, limit = 10, isRead, search, type } = req.query;
+  const userId = req.user.id;
+
+  let where = {
+    AND: [
+      { userId },
+    ],
+  };
+
+  if (isRead !== undefined) {
+    const isReadBool = isRead === "true" || isRead === true;
+    where.AND.push({ isRead: isReadBool });
+  }
+
+  if (search) {
+    where.AND.push({
+      OR: [
+        { title: { contains: search, mode: "insensitive" } },
+        { message: { contains: search, mode: "insensitive" } },
+      ],
+    });
+  }
+
+  if (type) {
+    where.AND.push({ type });
+  }
+
+  const { items: notifications, pagination } = await db.findManyWithPaginationAndCount({
+    model: "notification",
+    where,
+    page: parseInt(page),
+    limit: parseInt(limit),
+    orderBy: { createdAt: "desc" },
+  });
+
+  // Global unread notifications count for this user
+  const totalUnreadCount = await db.count({
+    model: "notification",
+    where: {
+      userId,
+      isRead: false,
+    },
+  });
+
+  // Filtered unread notifications count
+  const filteredUnreadWhere = {
+    ...where,
+    AND: [
+      ...where.AND.filter(cond => cond.isRead === undefined),
+      { isRead: false }
+    ]
+  };
+  const unreadCount = await db.count({
+    model: "notification",
+    where: filteredUnreadWhere,
+  });
+
+  return successResponse({
+    res,
+    req,
+    message: "FETCH_SUCCESS",
+    data: {
+      notifications,
+      pagination,
+      unreadCount,
+      totalUnreadCount,
+    },
+  });
+});
+
+// PATCH /notifications/read-all
+export const markUserAllAsRead = asyncHandler(async (req, res, next) => {
+  const userId = req.user.id;
+
+  await db.updateMany({
+    model: "notification",
+    where: {
+      userId,
+      isRead: false,
+    },
+    data: { isRead: true },
+  });
+
+  return successResponse({
+    res,
+    req,
+    message: "UPDATE_SUCCESS",
+  });
+});
+
+// PATCH /notifications/:id/read
+export const markUserAsRead = asyncHandler(async (req, res, next) => {
+  const { id } = req.params;
+  const userId = req.user.id;
+
+  const notification = await db.findFirst({
+    model: "notification",
+    where: {
+      id,
+      userId,
+    },
+  });
+
+  if (!notification) {
+    return errorResponse({ req, next, message: "NOTIFICATION_NOT_FOUND", status: 404 });
+  }
+
+  const updatedNotification = await db.updateOne({
+    model: "notification",
+    where: { id },
+    data: { isRead: true },
+  });
+
+  return successResponse({
+    res,
+    req,
+    message: "UPDATE_SUCCESS",
+    data: updatedNotification,
+  });
+});
+
+// DELETE /notifications/:id
+export const deleteUserNotification = asyncHandler(async (req, res, next) => {
+  const { id } = req.params;
+  const userId = req.user.id;
+
+  const notification = await db.findFirst({
+    model: "notification",
+    where: {
+      id,
+      userId,
+    },
+  });
+
+  if (!notification) {
+    return errorResponse({ req, next, message: "NOTIFICATION_NOT_FOUND", status: 404 });
+  }
+
+  await db.deleteOne({
+    model: "notification",
+    where: { id },
+  });
+
+  return successResponse({
+    res,
+    req,
+    message: "DELETE_SUCCESS",
+  });
+});
 
