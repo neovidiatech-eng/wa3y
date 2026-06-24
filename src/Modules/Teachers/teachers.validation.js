@@ -6,10 +6,9 @@ import {
 export const getAllTeachersSchema = {
   query: joi.object({
     search: generalFeilds.search,
-    /*  page: generalFeilds.page,
+     page: generalFeilds.page,
     limit: generalFeilds.limit,
-    sort: generalFeilds.sort,
-    sortType: generalFeilds.sortType, */
+
   }),
 };
 
