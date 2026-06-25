@@ -481,7 +481,7 @@ const createAcademyMailTemp = ({
     const safeActionUrl =
       actionUrl || process.env.FRONTEND_URL || "http://localhost:4200/#/";
     const displayActionText =
-      actionText || isAr ? "الدخول إلى الأكاديمية ←" : "Go to Academy →";
+      actionText || (isAr ? "الدخول إلى الأكاديمية ←" : "Go to Academy →");
 
     const otpBoxesHtml =
       otpDigits.length > 0

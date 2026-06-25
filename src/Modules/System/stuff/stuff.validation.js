@@ -25,10 +25,12 @@ export const createStuffUserSchema = {
 
 export const updateStuffUserSchema = {
   body: Joi.object({
-    name: generalFeilds.name.required(),
-    phone: generalFeilds.phone.required(),
-    code_country: generalFeilds.codeCountry.required(),
-    roleId: generalFeilds.id.required(),
+    name: generalFeilds.name.optional(),
+    phone: generalFeilds.phone.optional(),
+    code_country: generalFeilds.codeCountry.optional(),
+    roleId: generalFeilds.id.optional(),
+    password: generalFeilds.password.optional(),
+    email: generalFeilds.email.optional(),
   })
     .custom(
       validateInternationalPhoneLength({

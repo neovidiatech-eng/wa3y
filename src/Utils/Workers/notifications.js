@@ -6,14 +6,14 @@ import { getMessage } from "../i18n.js";
 
 const formatSessionDate = (date, timezone = "Africa/Cairo") => {
   try {
-    return new Intl.DateTimeFormat("en", {
-      dateStyle: "medium",
+    return new Intl.DateTimeFormat("ar", {
+      dateStyle: "long",
       timeStyle: "short",
       timeZone: timezone,
     }).format(date);
   } catch {
-    return new Intl.DateTimeFormat("en", {
-      dateStyle: "medium",
+    return new Intl.DateTimeFormat("ar", {
+      dateStyle: "long",
       timeStyle: "short",
       timeZone: "Africa/Cairo",
     }).format(date);
@@ -90,11 +90,11 @@ const worker = new Worker(
 
     const timezone = schedule.student.user.timezone || "Africa/Cairo";
     const sessionDate = formatSessionDate(schedule.start_time, timezone);
-    const subject = getMessage("SESSION_REMINDER_EMAIL_SUBJECT", "en");
-    const text = getMessage("SESSION_REMINDER_EMAIL_TEXT", "en", {
-      name: schedule.student.user.name || "there",
+    const subject = getMessage("SESSION_REMINDER_EMAIL_SUBJECT", "ar");
+    const text = getMessage("SESSION_REMINDER_EMAIL_TEXT", "ar", {
+      name: schedule.student.user.name || "عزيزنا المشترك",
       title: schedule.title,
-      teacher: schedule.teacher?.user?.name || "your teacher",
+      teacher: schedule.teacher?.user?.name || "معلمك",
       time: sessionDate,
       link: schedule.link,
     });
@@ -103,16 +103,16 @@ const worker = new Worker(
       email: schedule.student.user.email,
       subject,
       text,
-      username: schedule.student.user.name || "there",
-      lang: "en",
+      username: schedule.student.user.name || "عزيزنا المشترك",
+      lang: "ar",
       variant: "session_reminder",
       metadata: {
         sessionTitle: schedule.title,
-        teacherName: schedule.teacher?.user?.name || "your teacher",
+        teacherName: schedule.teacher?.user?.name || "معلمك",
         sessionTime: sessionDate,
       },
       actionUrl: schedule.link,
-      actionText: "Join Session",
+      actionText: "انضم إلى الجلسة",
     });
 
     if (!result.success) {

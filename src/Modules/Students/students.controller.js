@@ -33,32 +33,29 @@ export const getAllStudents = asyncHandler(async (req, res, next) => {
     where.active = active === "true";
   }
 
-  const [
-    { items: students, pagination },
-    totalCount,
-    activeCount,
-  ] = await Promise.all([
-    db.findManyWithPaginationAndCount({
-      model: "student",
-      where,
-      page,
-      limit,
-      include: {
-        user: {
-          include: {
-            role: {
-              select: {
-                name: true,
+  const [{ items: students, pagination }, totalCount, activeCount] =
+    await Promise.all([
+      db.findManyWithPaginationAndCount({
+        model: "student",
+        where,
+        page,
+        limit,
+        include: {
+          user: {
+            include: {
+              role: {
+                select: {
+                  name: true,
+                },
               },
             },
           },
+          plan: true,
         },
-        plan: true,
-      },
-    }),
-    db.count({ model: "student" }),
-    db.count({ model: "student", where: { active: true } }),
-  ]);
+      }),
+      db.count({ model: "student" }),
+      db.count({ model: "student", where: { active: true } }),
+    ]);
 
   const studentsData = await Promise.all(
     students.map(async (student) => {
@@ -122,15 +119,14 @@ export const createStudent = asyncHandler(async (req, res, next) => {
     timezone,
   } = req.body;
 
-  const [checkUserByEmail, checkPlan, studentRole] =
-    await Promise.all([
-      db.findOne({ model: "user", where: { email } }),
-      db.findOne({ model: "Plans", where: { id: planId } }),
-      db.findFirst({
-        model: "role",
-        where: { name: { equals: "student", mode: "insensitive" } },
-      }),
-    ]);
+  const [checkUserByEmail, checkPlan, studentRole] = await Promise.all([
+    db.findOne({ model: "user", where: { email } }),
+    db.findOne({ model: "Plans", where: { id: planId } }),
+    db.findFirst({
+      model: "role",
+      where: { name: { equals: "student", mode: "insensitive" } },
+    }),
+  ]);
 
   if (checkUserByEmail)
     return errorResponse({
@@ -318,6 +314,7 @@ export const updateStudent = asyncHandler(async (req, res, next) => {
     gender,
     active,
     timezone,
+    password,
   } = req.body;
 
   const student = await ensureExists({
@@ -348,9 +345,21 @@ export const updateStudent = asyncHandler(async (req, res, next) => {
         status: 404,
       });
   }
+  let encryptedPassword;
+
+  password ? (encryptedPassword = encryptPassword({ password })) : null;
 
   // Update user record if needed
-  if (name || email || phone || phone_code || country || nationality || timezone) {
+  if (
+    name ||
+    email ||
+    phone ||
+    phone_code ||
+    country ||
+    nationality ||
+    timezone ||
+    password
+  ) {
     await db.updateOne({
       model: "user",
       where: { id: student.user_id },
@@ -362,6 +371,7 @@ export const updateStudent = asyncHandler(async (req, res, next) => {
         ...(country && { country }),
         ...(nationality && { nationality }),
         ...(timezone && { timezone }),
+        ...(password && { password: encryptedPassword }),
       },
     });
   }
