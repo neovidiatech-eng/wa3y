@@ -44,6 +44,8 @@ export const updateStudentSchema = {
   body: Joi.object()
     .keys({
       name: generalFeilds.name,
+      email: generalFeilds.email,
+      password: generalFeilds.password,
       phone: generalFeilds.phone,
       phone_code: generalFeilds.codeCountry,
       country: generalFeilds.country,
