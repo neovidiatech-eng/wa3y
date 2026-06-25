@@ -65,8 +65,8 @@ export const createRequest = asyncHandler(async (req, res, next) => {
   });
 
   await createAdminNotification({
-    title: "New Session Request",
-    message: `A new session request (${type}) has been submitted by ${requester?.name || "User"} (${requesterRole}). Reason: ${reason || "None"}.`,
+    title: "تم تقديم طلب جلسة جديد",
+    message: `تم تقديم طلب جلسة (${type}) من ${requester?.name || "User"} (${requesterRole}).`,
     type: "session_request_created",
   });
 
@@ -354,8 +354,8 @@ export const approveRequest = asyncHandler(async (req, res, next) => {
   });
 
   await createAdminNotification({
-    title: "Session Request Approved",
-    message: `The session request (${request.type}) by ${requester?.name || "User"} has been approved.`,
+    title: "تم قبول طلب جلسة",
+    message: `تم قبول طلب جلسة (${request.type}) من ${requester?.name || "User"}.`,
     type: "session_request_approved",
   });
 
@@ -403,8 +403,8 @@ export const rejectRequest = asyncHandler(async (req, res, next) => {
   });
 
   await createAdminNotification({
-    title: "Session Request Rejected",
-    message: `The session request (${request.type}) by ${requester?.name || "User"} has been rejected.`,
+    title: "تم رفض طلب جلسة",
+    message: `تم رفض طلب جلسة (${request.type}) من ${requester?.name || "User"}.`,
     type: "session_request_rejected",
   });
 

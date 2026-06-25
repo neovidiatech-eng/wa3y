@@ -229,8 +229,8 @@ export const createStudent = asyncHandler(async (req, res, next) => {
   });
 
   await createAdminNotification({
-    title: "New Student Account Created",
-    message: `A new student account has been created by admin: ${name} (${email}).`,
+    title: "تم اضافة طالب جديد",
+    message: `تم اضافة طالب جديد: ${name} (${email}).`,
     type: "new_student",
   });
 

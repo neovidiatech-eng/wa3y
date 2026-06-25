@@ -261,8 +261,8 @@ export const createSchedule = asyncHandler(async (req, res, next) => {
     db.findOne({ model: "teacher", where: { id: teacherId }, include: { user: true } }),
   ]);
   await createAdminNotification({
-    title: "Session Scheduled",
-    message: `A new session "${title}" has been scheduled for student: ${studentInfo?.user?.name || "Student"} with teacher: ${teacherInfo?.user?.name || "Teacher"}.`,
+    title: "تم جدولة الجلسة",
+    message: `تم جدولة جلسة جديدة "${title}" للطالب: ${studentInfo?.user?.name || "Student"} مع المدرس: ${teacherInfo?.user?.name || "Teacher"}.`,
     type: "session_created",
   });
 
@@ -503,8 +503,8 @@ export const createRecurringSchedule = asyncHandler(async (req, res, next) => {
       db.findOne({ model: "teacher", where: { id: teacherId }, include: { user: true } }),
     ]);
     await createAdminNotification({
-      title: "Recurring Sessions Scheduled",
-      message: `${createdSchedules.length} recurring sessions have been scheduled for student: ${studentInfo?.user?.name || "Student"} with teacher: ${teacherInfo?.user?.name || "Teacher"}.`,
+      title: "تم جدولة الجلسات المتكررة",
+      message: `تم جدولة ${createdSchedules.length} جلسات متكررة للطالب: ${studentInfo?.user?.name || "Student"} مع المدرس: ${teacherInfo?.user?.name || "Teacher"}.`,
       type: "session_created",
     });
   }
@@ -681,8 +681,8 @@ export const deleteSchedule = asyncHandler(async (req, res, next) => {
     db.findOne({ model: "teacher", where: { id: schedule.teacherId }, include: { user: true } }),
   ]);
   await createAdminNotification({
-    title: "Session Cancelled",
-    message: `Session "${schedule.title}" has been cancelled/deleted for student: ${studentInfo?.user?.name || "Student"} with teacher: ${teacherInfo?.user?.name || "Teacher"}.`,
+    title: "تم إلغاء الجلسة",
+    message: `تم إلغاء الجلسة "${schedule.title}" للطالب: ${studentInfo?.user?.name || "Student"} مع المدرس: ${teacherInfo?.user?.name || "Teacher"}.`,
     type: "session_cancelled",
   });
 
@@ -763,8 +763,8 @@ export const deleteRecurringGroup = asyncHandler(async (req, res, next) => {
 
   if (firstSchedule) {
     await createAdminNotification({
-      title: "Recurring Sessions Cancelled",
-      message: `All recurring sessions under group "${parent_recurring_id}" have been cancelled/deleted for student: ${firstSchedule.student?.user?.name || "Student"} with teacher: ${firstSchedule.teacher?.user?.name || "Teacher"}.`,
+      title: "تم إلغاء الجلسات المتكررة",
+      message: `تم إلغاء جميع الجلسات المتكررة تحت المجموعة "${parent_recurring_id}" للطالب: ${firstSchedule.student?.user?.name || "Student"} مع المدرس: ${firstSchedule.teacher?.user?.name || "Teacher"}.`,
       type: "session_cancelled",
     });
   }
@@ -928,8 +928,8 @@ export const updateSchedule = asyncHandler(async (req, res, next) => {
     db.findOne({ model: "teacher", where: { id: schedule.teacherId }, include: { user: true } }),
   ]);
   await createAdminNotification({
-    title: "Session Rescheduled/Updated",
-    message: `Session "${updatedSchedule.title}" has been updated/rescheduled for student: ${studentInfo?.user?.name || "Student"} with teacher: ${teacherInfo?.user?.name || "Teacher"}.`,
+    title: "تم تعديل الجلسة",
+    message: `تم تعديل الجلسة "${updatedSchedule.title}" للطالب: ${studentInfo?.user?.name || "Student"} مع المدرس: ${teacherInfo?.user?.name || "Teacher"}.`,
     type: "session_updated",
   });
 
@@ -1422,8 +1422,8 @@ async function finalizeSession(scheduleId, t) {
     });
 
     await createAdminNotification({
-      title: "Session Missed",
-      message: `The session "${session.title}" between student: ${session.student.user?.name || "Student"} and teacher: ${session.teacher.user?.name || "Teacher"} was missed.`,
+      title: "تم تفويت الجلسة",
+      message: `تم تفويت الجلسة "${session.title}" بين الطالب: ${session.student.user?.name || "Student"} والمدرس: ${session.teacher.user?.name || "Teacher"}.`,
       type: "session_missed",
     });
   }

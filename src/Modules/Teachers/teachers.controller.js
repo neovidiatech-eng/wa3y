@@ -189,8 +189,8 @@ export const createTeacher = asyncHandler(async (req, res, next) => {
   });
 
   await createAdminNotification({
-    title: "New Teacher Created",
-    message: `A new teacher account has been created: ${name} (${email}).`,
+    title: "تم اضافة مدرس جديد",
+    message: `تم اضافة مدرس جديد: ${name} (${email}).`,
     type: "new_teacher",
   });
 
