@@ -16,6 +16,7 @@ const translateToArabic = (text) => {
     "New Teacher Created": "تم إنشاء معلم جديد",
     "New Student Registered": "تم تسجيل طالب جديد",
     "New Student Signed Up (Google)": "تسجيل طالب جديد (جوجل)",
+    "New Student Account Created": "تم إنشاء حساب طالب جديد",
     "New Session Request": "طلب جلسة جديد",
     "Session Request Approved": "تم قبول طلب الجلسة",
     "Session Request Rejected": "تم رفض طلب الجلسة",
@@ -24,6 +25,8 @@ const translateToArabic = (text) => {
     "New Recurring Sessions Created": "تم إنشاء جلسات متكررة جديدة",
     "Session Rescheduled/Updated": "تم تعديل/إعادة جدولة الجلسة",
     "Session Rescheduled": "تم إعادة جدولة الجلسة",
+    "Session Scheduled": "تم جدولة الجلسة",
+    "Recurring Sessions Scheduled": "تم جدولة جلسات متكررة",
     "Session Missed": "جلسة فائتة",
     "Teacher Late": "تأخر المعلم",
     "Session Joined": "تم الانضمام للجلسة",
@@ -139,6 +142,24 @@ const translateToArabic = (text) => {
   match = text.match(/You received a (.+?)-star review\./i);
   if (match) {
     return `لقد تلقيت تقييماً بـ ${match[1]} نجوم.`;
+  }
+
+  // 17. New Student Account Created (Admin)
+  match = text.match(/A new student account has been created by admin:\s*(.+?)\s*\((.+?)\)/i);
+  if (match) {
+    return `تم إنشاء حساب طالب جديد بواسطة المسؤول: ${match[1]} (${match[2]}).`;
+  }
+
+  // 18. Session Scheduled
+  match = text.match(/A new session "(.+?)" has been scheduled for student:\s*(.+?)\s*with teacher:\s*(.+?)\./i);
+  if (match) {
+    return `تم جدولة جلسة جديدة "${match[1]}" للطالب: ${match[2]} مع المعلم: ${match[3]}.`;
+  }
+
+  // 19. Recurring Sessions Scheduled
+  match = text.match(/(\d+) recurring sessions have been scheduled for student:\s*(.+?)\s*with teacher:\s*(.+?)\./i);
+  if (match) {
+    return `تم جدولة ${match[1]} جلسات متكررة للطالب: ${match[2]} مع المعلم: ${match[3]}.`;
   }
 
   return text;

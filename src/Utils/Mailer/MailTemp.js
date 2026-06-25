@@ -589,12 +589,12 @@ const createAcademyMailTemp = ({
     }
   </div>
 
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" dir="${isAr ? "rtl" : "ltr"}"
     style="background: linear-gradient(180deg, ${colors.soft} 0%, ${colors.light} 100%); min-height:100vh;">
     <tr>
       <td align="center" style="padding:40px 15px;">
 
-        <table role="presentation" class="email-container animated-card" width="600" cellpadding="0" cellspacing="0" border="0"
+        <table role="presentation" class="email-container animated-card" width="600" cellpadding="0" cellspacing="0" border="0" dir="${isAr ? "rtl" : "ltr"}"
           style="max-width:600px; width:100%; background:#FFFFFF; border-radius:24px; overflow:hidden; box-shadow:0 25px 50px -12px rgba(0,0,0,0.15);">
 
           <tr>
@@ -603,7 +603,7 @@ const createAcademyMailTemp = ({
 
           <tr>
             <td>
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" dir="${isAr ? "rtl" : "ltr"}"
                 style="background:linear-gradient(135deg, ${colors.dark} 0%, ${colors.primary} 55%, ${colors.secondary} 100%);">
                 <tr>
                   <td style="padding:34px 40px; text-align:center;">
@@ -631,7 +631,7 @@ const createAcademyMailTemp = ({
           <tr>
             <td class="mobile-padding" style="padding:20px 48px 36px 48px;">
 
-              <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto 24px auto;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" dir="${isAr ? "rtl" : "ltr"}" style="margin:0 auto 24px auto;">
                 <tr>
                   <td align="center">
                     <div style="
@@ -642,10 +642,11 @@ const createAcademyMailTemp = ({
                       box-shadow:0 10px 25px -5px ${colors.shadow};
                       text-align:center;
                       line-height:90px;
+                      overflow:hidden;
                     ">
                       ${
                         logoUrl
-                          ? `<img src="${logoUrl}" alt="${academyDisplayName}" width="80" height="80" style="vertical-align:middle; width:80px; height:80px; display:inline-block;" />`
+                          ? `<img src="${logoUrl}" alt="${academyDisplayName}" width="80" height="80" style="vertical-align:middle; width:80px; height:80px; display:inline-block; border-radius:18px;" />`
                           : `<span style="font-size:42px;">WA</span>`
                       }
                     </div>
@@ -689,17 +690,17 @@ const createAcademyMailTemp = ({
               ${
                 otp
                   ? `
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto 24px auto;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" dir="${isAr ? "rtl" : "ltr"}" style="margin:0 auto 24px auto;">
                 <tr>
                   <td align="center">
                     <div style="background:linear-gradient(145deg, #ffffff, ${colors.soft}); border-radius:20px; padding:28px 20px; border:1px solid ${colors.light};">
-                      <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;">
+                      <table role="presentation" cellpadding="0" cellspacing="0" border="0" dir="${isAr ? "rtl" : "ltr"}" style="margin:0 auto;">
                         <tr>
                           ${otpBoxesHtml}
                         </tr>
                       </table>
 
-                      <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:18px auto 0 auto;">
+                      <table role="presentation" cellpadding="0" cellspacing="0" border="0" dir="${isAr ? "rtl" : "ltr"}" style="margin:18px auto 0 auto;">
                         <tr>
                           <td style="background:linear-gradient(135deg, ${colors.light}, ${colors.accent}); padding:8px 16px; border-radius:50px;">
                             <span style="font-size:13px; color:${colors.primaryDark}; font-weight:700;">
@@ -713,10 +714,10 @@ const createAcademyMailTemp = ({
                 </tr>
               </table>
 
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto 20px auto;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" dir="${isAr ? "rtl" : "ltr"}" style="margin:0 auto 20px auto;">
                 <tr>
                   <td style="background:${colors.warningBg}; border-radius:12px; padding:16px 20px; border-left:4px solid ${colors.secondary};">
-                    <table cellpadding="0" cellspacing="0" border="0">
+                    <table cellpadding="0" cellspacing="0" border="0" dir="${isAr ? "rtl" : "ltr"}">
                       <tr>
                         <td style="padding-right:12px;">
                           <span style="font-size:20px;">🛡️</span>
@@ -743,14 +744,14 @@ const createAcademyMailTemp = ({
               ${
                 isSessionReminder
                   ? `
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto 20px auto;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" dir="${isAr ? "rtl" : "ltr"}" style="margin:0 auto 20px auto;">
                 <tr>
                   <td style="background:linear-gradient(145deg, ${colors.soft}, #ffffff); border-radius:18px; padding:24px; border:1px solid ${colors.light};">
                     <p style="margin:0 0 16px 0; font-size:13px; color:${colors.primary}; font-weight:800; letter-spacing:1.2px; text-transform:uppercase; text-align:center;">
                       ${isAr ? "تفاصيل الجلسة" : "Session Details"}
                     </p>
 
-                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" dir="${isAr ? "rtl" : "ltr"}">
                       ${sessionDetails
                         .map(
                           (item) => `
@@ -782,7 +783,7 @@ const createAcademyMailTemp = ({
               `
                   : text
                     ? `
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto 20px auto;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" dir="${isAr ? "rtl" : "ltr"}" style="margin:0 auto 20px auto;">
                 <tr>
                   <td style="background:linear-gradient(145deg, ${colors.soft}, #ffffff); border-radius:16px; padding:24px; border:1px solid ${colors.light};">
                     <p style="margin:0; font-size:15px; color:${colors.primaryDark}; line-height:1.7; text-align:center;">
@@ -795,7 +796,7 @@ const createAcademyMailTemp = ({
                     : ""
               }
 
-              <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:10px auto 0 auto;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" dir="${isAr ? "rtl" : "ltr"}" style="margin:10px auto 0 auto;">
                 <tr>
                   <td align="center">
                     <a href="${escapeHtml(safeActionUrl)}" target="_blank" style="
@@ -821,7 +822,7 @@ const createAcademyMailTemp = ({
 
           <tr>
             <td class="mobile-padding" style="padding:0 48px 36px 48px;">
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" dir="${isAr ? "rtl" : "ltr"}">
                 <tr>
                   <td width="33%" style="text-align:center; padding:0 8px;">
                     <div style="background:${colors.soft}; border-radius:14px; padding:20px 12px;">
@@ -866,7 +867,7 @@ const createAcademyMailTemp = ({
 
         </table>
 
-        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:24px auto 0 auto;">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" dir="${isAr ? "rtl" : "ltr"}" style="margin:24px auto 0 auto;">
           <tr>
             <td align="center">
               <p style="margin:0; font-size:11px; color:${colors.muted};">
