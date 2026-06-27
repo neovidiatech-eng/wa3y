@@ -57,12 +57,10 @@ export const getProfile = asyncHandler(async (req, res, next) => {
       },
     },
   });
-  console.log(user);
 
   const phoneToPhone = looksEncrypted(user.user.phone)
     ? await decryptText({ text: user.user.phone })
     : user.user.phone;
-  console.log();
 
   const userDecrypted = {
     ...user,

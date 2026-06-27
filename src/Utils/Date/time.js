@@ -69,10 +69,6 @@ export const isBeforeAllowedJoinTime = (startTime, windowMinutes = 5) => {
 
   const tooEarly = now.isBefore(threshold);
 
-  console.log(`[TIME_CHECK] Now (UTC): ${now.toISOString()} | Now (Cairo): ${toLocal(now)}`);
-  console.log(`[TIME_CHECK] Session Start (UTC): ${start.toISOString()} | Allowed From (UTC): ${threshold.toISOString()}`);
-  console.log(`[TIME_CHECK] Is Too Early: ${tooEarly}`);
-
   return tooEarly;
 };
 

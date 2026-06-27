@@ -32,7 +32,7 @@ export const init_io = (io) => {
       }
       socket.t = (key, params) => getMessage(key, lang, params);
 
-      console.log(`User connected: ${user.name} (${user.role.name})`);
+
 
       // 1. Online status tracking
       const isFirstConnection = await RedisUtils.setUserOnline(user.id, socket.id);
@@ -46,7 +46,6 @@ export const init_io = (io) => {
         const allConversations = await db.findMany({ model: "Conversation", select: { id: true } });
         allConversations.forEach(conv => socket.join(`conv_${conv.id}`));
         socket.join("user_admin");
-        console.log(`Admin ${user.name} joined all conversation rooms and user_admin`);
       }
 
       /**
@@ -69,8 +68,6 @@ export const init_io = (io) => {
           
           // Emit initial messages only to this client
           socket.emit("messages:history", { conversationId, messages });
-          
-          console.log(`User ${user.name} opened conversation ${conversationId}`);
         } catch (error) {
           socket.emit("error", { message: socket.t(error.message) });
         }
@@ -188,7 +185,6 @@ export const init_io = (io) => {
       });
 
       socket.on("disconnect", async () => {
-        console.log(`User disconnected: ${user.name}`);
         const isLastConnection = await RedisUtils.setUserOffline(user.id, socket.id);
         
         // Notify others only if this was the last connection

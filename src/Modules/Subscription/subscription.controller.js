@@ -1,4 +1,4 @@
-import { log } from "node:console";
+
 import { findMany } from "../../database/dbService.js";
 import * as db from "../../database/dbService.js";
 import { asyncHandler, errorResponse, successResponse } from "../../Utils/Response.js";
@@ -112,8 +112,6 @@ export const renewSubscription = asyncHandler(async (req, res, next) => {
     where: { userId: student.userId },
   });
 
-  console.log(studentSub);
-
   if (!studentSub) {
     return errorResponse({ req, next, status: 404, message: "SUBSCRIPTION_NOT_FOUND" });
   }
@@ -132,7 +130,6 @@ export const renewSubscription = asyncHandler(async (req, res, next) => {
           paidAt: new Date(),
         },
       });
-      console.log("newSubscription", plan);
       const updatedStudent = await db.updateOne({
         model: "student",
         where: { id: studentId },

@@ -34,14 +34,12 @@ export const addNotificationJob = async ({
       delay: Math.max(0, sendAt - new Date()),
     }, // الفارق بالمللي ثانية
   );
-  console.log(`Added job with ID: ${job.id}`);
 };
 
 export const removeNotificationJob = async (scheduleId) => {
   const job = await notificationQueue.getJob(scheduleId);
   if (job) {
     await job.remove();
-    console.log(`Removed job associated with schedule ${scheduleId}`);
   }
 };
 
@@ -120,10 +118,6 @@ const worker = new Worker(
         `Failed to send ${type} notification for schedule ${scheduleId}: ${result.error}`,
       );
     }
-
-    console.log(
-      `Sent ${type} notification email to student ${studentId} for schedule ${scheduleId}`,
-    );
   },
   { connection },
 );
