@@ -96,8 +96,8 @@ export const updateTeacherSchema = {
         })
         .optional(),
 
-      hour_price: generalFeilds.price,
-      active: generalFeilds.active,
+      hour_price: generalFeilds.price.optional(),
+      active: generalFeilds.active.optional(),
       subject_ids: joi.array().items(
         generalFeilds.id.messages({
           "string.base": "SUBJECT_ID_STRING",

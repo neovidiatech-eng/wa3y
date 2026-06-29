@@ -57,7 +57,7 @@ router.delete(
 );
 
 // Parent routes - require authentication and parent role
-router.use(authentication(), isParent());
+router.use(authentication());
 
 router.get("/students", parentController.getLinkedStudents);
 
