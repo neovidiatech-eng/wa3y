@@ -525,6 +525,7 @@ export const createNotification = async ({ userId, title, message, type }) => {
           },
         });
       }
+      console.log({ token: user.fcmToken ,sent:"sent successfully"});
     }
 
     return notification;
