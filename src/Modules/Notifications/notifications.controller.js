@@ -536,6 +536,10 @@ export const createNotification = async ({ userId, title, message, type }) => {
 export const createAdminNotification = async ({ title, message, type }) => {
   return createNotification({ userId: "admin", title, message, type });
 };
+export const createTeacherAndStudentNotification = async ({ title, message, type, teacherId, studentId }) => {
+  await createNotification({ userId: teacherId, title, message, type });
+  await createNotification({ userId: studentId, title, message, type });
+};
 
 // GET /notifications
 export const getUserNotifications = asyncHandler(async (req, res, next) => {

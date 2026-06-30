@@ -260,12 +260,20 @@ export const createSchedule = asyncHandler(async (req, res, next) => {
     db.findOne({ model: "student", where: { id: studentId }, include: { user: true } }),
     db.findOne({ model: "teacher", where: { id: teacherId }, include: { user: true } }),
   ]);
-  await createAdminNotification({
+ await Promise.all([
+  createTeacherAndStudentNotification({
     title: "تم جدولة الجلسة",
     message: `تم جدولة جلسة جديدة "${title}" للطالب: ${studentInfo?.user?.name || "Student"} مع المدرس: ${teacherInfo?.user?.name || "Teacher"}.`,
     type: "session_created",
-  });
-
+    teacherId,
+    studentId,
+  }),
+  createAdminNotification({
+    title: "تم جدولة الجلسة",
+    message: `تم جدولة جلسة جديدة "${title}" للطالب: ${studentInfo?.user?.name || "Student"} مع المدرس: ${teacherInfo?.user?.name || "Teacher"}.`,
+    type: "session_created",
+  }),
+ ]);
   return successResponse({
     res,
     req,
