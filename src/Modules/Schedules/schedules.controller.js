@@ -27,7 +27,7 @@ import {
 } from "../../Utils/Date/time.js";
 import dayjs from "dayjs";
 import { getSettingsData } from "../Settings/settings.controller.js";
-import { createAdminNotification, createNotification } from "../Notifications/notifications.controller.js";
+import { createAdminNotification, createNotification, createTeacherAndStudentNotification } from "../Notifications/notifications.controller.js";
 
 /* ------------------------------------------------------------------ */
 /*            Admin creates multiple sessions in one request            */
