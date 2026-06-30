@@ -537,8 +537,12 @@ export const createAdminNotification = async ({ title, message, type }) => {
   return createNotification({ userId: "admin", title, message, type });
 };
 export const createTeacherAndStudentNotification = async ({ title, message, type, teacherId, studentId }) => {
-  await createNotification({ userId: teacherId, title, message, type });
-  await createNotification({ userId: studentId, title, message, type });
+  console.log({studentId,teacherId});
+  
+  await Promise.all([
+    createNotification({ userId: teacherId, title, message, type }),
+    createNotification({ userId: studentId, title, message, type })
+  ])
 };
 
 // GET /notifications

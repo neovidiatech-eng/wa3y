@@ -265,8 +265,8 @@ export const createSchedule = asyncHandler(async (req, res, next) => {
     title: "تم جدولة الجلسة",
     message: `تم جدولة جلسة جديدة "${title}" للطالب: ${studentInfo?.user?.name || "Student"} مع المدرس: ${teacherInfo?.user?.name || "Teacher"}.`,
     type: "session_created",
-    teacherId,
-    studentId,
+    teacherId: teacherInfo?.user?.id,
+    studentId: studentInfo?.user?.id,
   }),
   createAdminNotification({
     title: "تم جدولة الجلسة",
