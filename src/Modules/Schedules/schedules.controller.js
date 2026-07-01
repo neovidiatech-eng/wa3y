@@ -510,11 +510,20 @@ export const createRecurringSchedule = asyncHandler(async (req, res, next) => {
       db.findOne({ model: "student", where: { id: studentId }, include: { user: true } }),
       db.findOne({ model: "teacher", where: { id: teacherId }, include: { user: true } }),
     ]);
-    await createAdminNotification({
+ await Promise.all([
+   createAdminNotification({
       title: "تم جدولة الجلسات المتكررة",
       message: `تم جدولة ${createdSchedules.length} جلسات متكررة للطالب: ${studentInfo?.user?.name || "Student"} مع المدرس: ${teacherInfo?.user?.name || "Teacher"}.`,
       type: "session_created",
-    });
+    }),
+    createTeacherAndStudentNotification({
+    title: "تم جدولة الجلسة",
+    message: `تم جدولة ${createdSchedules.length} جلسة جديدة "${title}" للطالب: ${studentInfo?.user?.name || "Student"} مع المدرس: ${teacherInfo?.user?.name || "Teacher"}.`,
+    type: "session_created",
+    teacherId: teacherInfo?.user?.id,
+    studentId: studentInfo?.user?.id,
+  })
+ ])
   }
 
   return successResponse({
@@ -688,11 +697,20 @@ export const deleteSchedule = asyncHandler(async (req, res, next) => {
     db.findOne({ model: "student", where: { id: schedule.studentId }, include: { user: true } }),
     db.findOne({ model: "teacher", where: { id: schedule.teacherId }, include: { user: true } }),
   ]);
-  await createAdminNotification({
+    await Promise.all([
+  createTeacherAndStudentNotification({
     title: "تم إلغاء الجلسة",
     message: `تم إلغاء الجلسة "${schedule.title}" للطالب: ${studentInfo?.user?.name || "Student"} مع المدرس: ${teacherInfo?.user?.name || "Teacher"}.`,
     type: "session_cancelled",
-  });
+    teacherId: teacherInfo?.user?.id,
+    studentId: studentInfo?.user?.id,
+  }),
+  createAdminNotification({
+    title: "تم إلغاء الجلسة",
+    message: `تم إلغاء الجلسة "${schedule.title}" للطالب: ${studentInfo?.user?.name || "Student"} مع المدرس: ${teacherInfo?.user?.name || "Teacher"}.`,
+    type: "session_cancelled",
+  }),
+ ]);
 
   return successResponse({
     res,
@@ -735,15 +753,19 @@ export const deleteRecurringGroup = asyncHandler(async (req, res, next) => {
     select: { id: true },
   });
 
+  const firstSchedule = await db.findFirst({
+    model: "schedule",
+    where: { parent_recurring_id },
+    include: {
+      student: { include: { user: true } },
+      teacher: { include: { user: true } },
+    },
+  });
+
   // 🛡️ Use transaction to ensure refund and mass deletion happen together
   await db.transaction(async (tx) => {
     if (sessionsToRefund.length > 0) {
       const totalRefund = sessionsToRefund.length;
-      const firstSchedule = await tx.findFirst({
-        model: "schedule",
-        where: { parent_recurring_id },
-      });
-
       if (firstSchedule) {
         await tx.updateOne({
           model: "student",
@@ -760,21 +782,21 @@ export const deleteRecurringGroup = asyncHandler(async (req, res, next) => {
     });
   });
 
-  const firstSchedule = await db.findFirst({
-    model: "schedule",
-    where: { parent_recurring_id },
-    include: {
-      student: { include: { user: true } },
-      teacher: { include: { user: true } },
-    },
-  });
-
   if (firstSchedule) {
-    await createAdminNotification({
-      title: "تم إلغاء الجلسات المتكررة",
-      message: `تم إلغاء جميع الجلسات المتكررة تحت المجموعة "${parent_recurring_id}" للطالب: ${firstSchedule.student?.user?.name || "Student"} مع المدرس: ${firstSchedule.teacher?.user?.name || "Teacher"}.`,
-      type: "session_cancelled",
-    });
+    await Promise.all([
+      createTeacherAndStudentNotification({
+        title: "تم إلغاء الجلسات المتكررة",
+        message: `تم إلغاء جميع الجلسات المتكررة للطالب: ${firstSchedule.student?.user?.name || "Student"} مع المدرس: ${firstSchedule.teacher?.user?.name || "Teacher"}.`,
+        type: "session_cancelled",
+        teacherId: firstSchedule.teacher?.user?.id,
+        studentId: firstSchedule.student?.user?.id,
+      }),
+      createAdminNotification({
+        title: "تم إلغاء الجلسات المتكررة",
+        message: `تم إلغاء جميع الجلسات المتكررة تحت المجموعة "${parent_recurring_id}" للطالب: ${firstSchedule.student?.user?.name || "Student"} مع المدرس: ${firstSchedule.teacher?.user?.name || "Teacher"}.`,
+        type: "session_cancelled",
+      }),
+    ]);
   }
 
   return successResponse({
@@ -935,11 +957,20 @@ export const updateSchedule = asyncHandler(async (req, res, next) => {
     db.findOne({ model: "student", where: { id: schedule.studentId }, include: { user: true } }),
     db.findOne({ model: "teacher", where: { id: schedule.teacherId }, include: { user: true } }),
   ]);
-  await createAdminNotification({
+   await Promise.all([
+    createTeacherAndStudentNotification({
     title: "تم تعديل الجلسة",
-    message: `تم تعديل الجلسة "${updatedSchedule.title}" للطالب: ${studentInfo?.user?.name || "Student"} مع المدرس: ${teacherInfo?.user?.name || "Teacher"}.`,
+    message: `تم تعديل الجلسة "${schedule.title}" للطالب: ${studentInfo?.user?.name || "Student"} مع المدرس: ${teacherInfo?.user?.name || "Teacher"}. الي المعاد الجديد ${startTime} - ${endTime}`,
     type: "session_updated",
-  });
+    teacherId: teacherInfo?.user?.id,
+    studentId: studentInfo?.user?.id,
+  }),
+  createAdminNotification({
+    title: "تم تعديل الجلسة",
+    message: `تم تعديل الجلسة "${schedule.title}" للطالب: ${studentInfo?.user?.name || "Student"} مع المدرس: ${teacherInfo?.user?.name || "Teacher"}.`,
+    type: "session_updated",
+  }),
+ ]);
 
   return successResponse({
     res,
@@ -1420,20 +1451,22 @@ async function finalizeSession(scheduleId, t) {
 
   // Notify if missed
   if (newStatus === "missed") {
-    await createNotification({
-      userId: session.student.user_id,
-      title: t ? t("NOTIFICATION_SESSION_MISSED_TITLE") : "Session Missed",
-      message: t
-        ? t("NOTIFICATION_SESSION_MISSED_MSG", { title: session.title })
-        : `The session ${session.title} was marked as missed.`,
-      type: "session_missed",
-    });
-
-    await createAdminNotification({
-      title: "تم تفويت الجلسة",
-      message: `تم تفويت الجلسة "${session.title}" بين الطالب: ${session.student.user?.name || "Student"} والمدرس: ${session.teacher.user?.name || "Teacher"}.`,
-      type: "session_missed",
-    });
+    await Promise.all([
+      createTeacherAndStudentNotification({
+        title: t ? t("NOTIFICATION_SESSION_MISSED_TITLE") : "Session Missed",
+        message: t
+          ? t("NOTIFICATION_SESSION_MISSED_MSG", { title: session.title })
+          : `The session ${session.title} was marked as missed.`,
+        type: "session_missed",
+        teacherId: session.teacher.user?.id,
+        studentId: session.student.user?.id,
+      }),
+      createAdminNotification({
+        title: "تم تفويت الجلسة",
+        message: `تم تفويت الجلسة "${session.title}" بين الطالب: ${session.student.user?.name || "Student"} والمدرس: ${session.teacher.user?.name || "Teacher"}.`,
+        type: "session_missed",
+      }),
+    ]);
   }
 }
 

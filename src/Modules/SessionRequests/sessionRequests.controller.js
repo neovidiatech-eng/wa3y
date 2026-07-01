@@ -10,7 +10,43 @@ import {
   removeNotificationJob,
 } from "../../Utils/Workers/notifications.js";
 import { notificationType } from "../../Utils/Enums/sessions.js";
-import { createAdminNotification } from "../Notifications/notifications.controller.js";
+import { createAdminNotification, createTeacherAndStudentNotification } from "../Notifications/notifications.controller.js";
+
+async function resolveRequestUsers(request) {
+  let teacherUserId = null;
+  let studentUserId = null;
+
+  if (request.schedule) {
+    teacherUserId = request.schedule.teacher?.user?.id;
+    studentUserId = request.schedule.student?.user?.id;
+  } else {
+    const requestedData = request.requestedData || {};
+    if (request.requesterRole === "teacher") {
+      teacherUserId = request.requesterId;
+    } else if (requestedData.teacherId) {
+      const teacher = await db.findOne({
+        model: "teacher",
+        where: { id: requestedData.teacherId },
+        include: { user: true },
+      });
+      teacherUserId = teacher?.user?.id;
+    }
+
+    if (request.requesterRole === "student") {
+      studentUserId = request.requesterId;
+    } else if (requestedData.studentId) {
+      const student = await db.findOne({
+        model: "student",
+        where: { id: requestedData.studentId },
+        include: { user: true },
+      });
+      studentUserId = student?.user?.id;
+    }
+  }
+
+  return { teacherUserId, studentUserId };
+}
+
 
 
 // 1. Create Request (Teacher/Student)
@@ -118,7 +154,14 @@ export const approveRequest = asyncHandler(async (req, res, next) => {
   const request = await db.findOne({
     model: "session_request",
     where: { id },
-    include: { schedule: true },
+    include: {
+      schedule: {
+        include: {
+          teacher: { include: { user: true } },
+          student: { include: { user: true } },
+        },
+      },
+    },
   });
 
   if (!request) {
@@ -237,8 +280,28 @@ export const approveRequest = asyncHandler(async (req, res, next) => {
     } else if (type === "new_session") {
       const startTime = normalizeDate(requestedData.new_start_time, req.timezone);
       const endTime = normalizeDate(requestedData.new_end_time, req.timezone);
-      const teacherId = requestedData.teacherId || request.requesterId;
-      const studentId = requestedData.studentId;
+      let teacherId = requestedData.teacherId;
+      let studentId = requestedData.studentId;
+
+      if (!teacherId && request.requesterRole === "teacher") {
+        const teacher = await tx.findOne({
+          model: "teacher",
+          where: { user_id: request.requesterId },
+        });
+        if (teacher) {
+          teacherId = teacher.id;
+        }
+      }
+
+      if (!studentId && request.requesterRole === "student") {
+        const student = await tx.findOne({
+          model: "student",
+          where: { user_id: request.requesterId },
+        });
+        if (student) {
+          studentId = student.id;
+        }
+      }
 
       // Conflict check
       const teacher_conflict = await tx.findFirst({
@@ -353,11 +416,22 @@ export const approveRequest = asyncHandler(async (req, res, next) => {
     where: { id: request.requesterId }
   });
 
-  await createAdminNotification({
-    title: "تم قبول طلب جلسة",
-    message: `تم قبول طلب جلسة (${request.type}) من ${requester?.name || "User"}.`,
-    type: "session_request_approved",
-  });
+  const { teacherUserId, studentUserId } = await resolveRequestUsers(request);
+
+  await Promise.all([
+    createTeacherAndStudentNotification({
+      title: "تم قبول طلب جلسة",
+      message: `تم قبول طلب جلسة (${request.type}) من ${requester?.name || "User"}.`,
+      type: "session_request_approved",
+      teacherId: teacherUserId,
+      studentId: studentUserId,
+    }),
+    createAdminNotification({
+      title: "تم قبول طلب جلسة",
+      message: `تم قبول طلب جلسة (${request.type}) من ${requester?.name || "User"}.`,
+      type: "session_request_approved",
+    }),
+  ]);
 
   return successResponse({
     res,
@@ -372,7 +446,18 @@ export const rejectRequest = asyncHandler(async (req, res, next) => {
   const { adminNotes } = req.body;
   const adminId = req.user.id;
 
-  const request = await db.findOne({ model: "session_request", where: { id } });
+  const request = await db.findOne({
+    model: "session_request",
+    where: { id },
+    include: {
+      schedule: {
+        include: {
+          teacher: { include: { user: true } },
+          student: { include: { user: true } },
+        },
+      },
+    },
+  });
   if (!request) {
     return errorResponse({
       req,
@@ -402,11 +487,22 @@ export const rejectRequest = asyncHandler(async (req, res, next) => {
     where: { id: request.requesterId }
   });
 
-  await createAdminNotification({
-    title: "تم رفض طلب جلسة",
-    message: `تم رفض طلب جلسة (${request.type}) من ${requester?.name || "User"}.`,
-    type: "session_request_rejected",
-  });
+  const { teacherUserId, studentUserId } = await resolveRequestUsers(request);
+
+  await Promise.all([
+    createTeacherAndStudentNotification({
+      title: "تم رفض طلب جلسة",
+      message: `تم رفض طلب جلسة (${request.type}) من ${requester?.name || "User"}.`,
+      type: "session_request_rejected",
+      teacherId: teacherUserId,
+      studentId: studentUserId,
+    }),
+    createAdminNotification({
+      title: "تم رفض طلب جلسة",
+      message: `تم رفض طلب جلسة (${request.type}) من ${requester?.name || "User"}.`,
+      type: "session_request_rejected",
+    }),
+  ]);
 
   return successResponse({
     res,
