@@ -5,6 +5,7 @@ import { authorizeResource, authorize } from "../../Middlewares/AuthorizationMid
 import { PERMISSIONS_V2 } from "../../Constants/permissions.constants.js";
 import * as withdrawalController from "./withdrawals.controller.js";
 import * as schema from "./withdrawals.validation.js";
+import { mutationRateLimiter } from "../../Middlewares/RateLimiter.js";
 
 const router = Router();
 
@@ -23,6 +24,7 @@ router.get(
 router.post(
   "/request",
   authentication(),
+  mutationRateLimiter,
   authorizeResource("withdrawals"),
   validation(schema.requestWithdrawal),
   withdrawalController.requestWithdrawal

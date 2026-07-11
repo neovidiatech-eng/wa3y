@@ -1,14 +1,17 @@
 import rateLimit from "express-rate-limit";
 
 // Configure limits via environment variables with sensible defaults
-const GLOBAL_LIMIT_WINDOW = parseInt(process.env.GLOBAL_RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000;
-const GLOBAL_LIMIT_MAX    = parseInt(process.env.GLOBAL_RATE_LIMIT_MAX)        || 100;
+const GLOBAL_LIMIT_WINDOW    = parseInt(process.env.GLOBAL_RATE_LIMIT_WINDOW_MS)    || 15 * 60 * 1000;
+const GLOBAL_LIMIT_MAX       = parseInt(process.env.GLOBAL_RATE_LIMIT_MAX)           || 100;
 
-const AUTH_LIMIT_WINDOW   = parseInt(process.env.AUTH_RATE_LIMIT_WINDOW_MS)    || 15 * 60 * 1000;
-const AUTH_LIMIT_MAX      = parseInt(process.env.AUTH_RATE_LIMIT_MAX)          || 20;
+const AUTH_LIMIT_WINDOW      = parseInt(process.env.AUTH_RATE_LIMIT_WINDOW_MS)       || 15 * 60 * 1000;
+const AUTH_LIMIT_MAX         = parseInt(process.env.AUTH_RATE_LIMIT_MAX)              || 20;
 
-const OTP_LIMIT_WINDOW    = parseInt(process.env.OTP_RATE_LIMIT_WINDOW_MS)     || 60 * 60 * 1000;
-const OTP_LIMIT_MAX       = parseInt(process.env.OTP_RATE_LIMIT_MAX)           || 5;
+const OTP_LIMIT_WINDOW       = parseInt(process.env.OTP_RATE_LIMIT_WINDOW_MS)        || 60 * 60 * 1000;
+const OTP_LIMIT_MAX          = parseInt(process.env.OTP_RATE_LIMIT_MAX)               || 5;
+
+const MUTATION_LIMIT_WINDOW  = parseInt(process.env.MUTATION_RATE_LIMIT_WINDOW_MS)   || 15 * 60 * 1000;
+const MUTATION_LIMIT_MAX     = parseInt(process.env.MUTATION_RATE_LIMIT_MAX)          || 30;
 
 const createRateLimiter = ({
   windowMs,
@@ -22,7 +25,7 @@ const createRateLimiter = ({
     limit,
     skipSuccessfulRequests,
     keyGenerator,
-    requestPropertyName:"limits",
+    requestPropertyName: "limits",
     standardHeaders: true,
     legacyHeaders: false,
     handler: (req, res) => {
@@ -54,4 +57,12 @@ export const otpRateLimiter = createRateLimiter({
   limit:        OTP_LIMIT_MAX,
   message:      "TOO_MANY_OTP_REQUESTS_1H",
   keyGenerator: (req) => req.body?.email || req.ip,
+});
+
+// Mutation rate limiter — throttles sensitive write operations
+// (withdrawals, session requests, subscriptions renewals, etc.)
+export const mutationRateLimiter = createRateLimiter({
+  windowMs: MUTATION_LIMIT_WINDOW,
+  limit:    MUTATION_LIMIT_MAX,
+  message:  "TOO_MANY_ATTEMPTS_LIMIT_15M",
 });

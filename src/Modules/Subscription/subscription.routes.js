@@ -6,6 +6,7 @@ import { authorizeResource } from "../../Middlewares/AuthorizationMiddleware.js"
 import * as sub from "./subscription.controller.js";
 import * as schema from "./subsscription.validation.js";
 import { validation } from "../../Middlewares/Validation.js";
+import { mutationRateLimiter } from "../../Middlewares/RateLimiter.js";
 
 
 const router = Router();
@@ -21,6 +22,7 @@ router.get(
 router.post(
   "/renew/:studentId",
   authentication(),
+  mutationRateLimiter,
   validation(schema.renewSubscription),
   authorizeResource("subscriptions"),
   sub.renewSubscription,
