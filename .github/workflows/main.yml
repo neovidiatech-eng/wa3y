@@ -73,36 +73,7 @@ jobs:
             git pull origin main
 
             # ── Step 2: Write .env to project root ───────────────────────────
-            cat > .env << 'ENVEOF'
-            DATABASE_URL=postgresql://${{ secrets.POSTGRES_USER }}:${{ secrets.POSTGRES_PASSWORD }}@postgres:5432/${{ secrets.POSTGRES_DB }}
-            POSTGRES_USER=${{ secrets.POSTGRES_USER }}
-            POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
-            POSTGRES_DB=${{ secrets.POSTGRES_DB }}
-            POSTGRES_PORT=${{secrets.POSTGRES_PORT}}
-            REDIS_URL=${{ secrets.REDIS_URL }}
-            REDIS_PORT=${{secrets.REDIS_PORT}}
-            ENCRYPT_KEY=${{ secrets.ENCRYPT_KEY }}
-            SALT=${{ secrets.SALT }}
-            JWT_SECRET=${{ secrets.JWT_SECRET }}
-            JWT_SECRET_ACCESS_ADMIN=${{ secrets.JWT_SECRET_ACCESS_ADMIN }}
-            JWT_SECRET_REFRESH_ADMIN=${{ secrets.JWT_SECRET_REFRESH_ADMIN }}
-            APP_EMAIL=${{ secrets.APP_EMAIL }}
-            APP_PASSWORD=${{ secrets.APP_PASSWORD }}
-            GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
-            PORT=${{secrets.PORT}}
-            APP_PORT=${{secrets.APP_PORT}}
-            MAIL_HOST=${{secrets.MAIL_HOST}}
-            MAIL_PORT=${{secrets.MAIL_PORT}}
-            MAIL_USER=${{secrets.MAIL_USER}}
-            MAIL_PASS=${{secrets.MAIL_PASS}}
-            MAIL_FROM=${{secrets.MAIL_FROM}}
-            FRONTEND_URL=${{secrets.FRONTEND_URL}}
-            CORS_ORIGINS=${{secrets.CORS_ORIGINS}}
-            NODE_ENV=${{secrets.NODE_ENV}}
-            PGADMIN_DEFAULT_EMAIL=${{ secrets.PGADMIN_DEFAULT_EMAIL }}
-            PGADMIN_DEFAULT_PASSWORD=${{ secrets.PGADMIN_DEFAULT_PASSWORD }}
-            PGADMIN_PORT=${{secrets.PGADMIN_PORT}}
-            ENVEOF
+            
 
 
             # ── Step 3: Rebuild containers ────────────────────────────────────
