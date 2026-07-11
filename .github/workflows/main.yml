@@ -103,6 +103,7 @@ jobs:
             PGADMIN_DEFAULT_PASSWORD=${{ secrets.PGADMIN_DEFAULT_PASSWORD }}
             PGADMIN_PORT=5059
             ENVEOF
+            
 
             # ── Step 3: Rebuild containers ────────────────────────────────────
             docker compose down
