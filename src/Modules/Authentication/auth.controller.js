@@ -168,6 +168,8 @@ export const login = asyncHandler(async (req, res, next) => {
       status: 400,
     });
   }
+  console.log(req.limits);
+  
   const user = await db.findFirst({
     model: "user",
     where: {

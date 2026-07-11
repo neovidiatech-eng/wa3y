@@ -7,6 +7,7 @@ import path from "node:path";
 import { globalErrorHandling } from "./Utils/Response.js";
 import { langMiddleware } from "./Middlewares/i18n.js";
 import { timezoneMiddleware } from "./Middlewares/Timezone.js";
+import { globalRateLimiter } from "./Middlewares/RateLimiter.js";
 import fs from "node:fs";
 import {
   notificationQueue,
@@ -21,6 +22,7 @@ import { createAdapter } from "@socket.io/redis-adapter";
 
 const bootstrap = async () => {
   const app = express();
+  app.set("trust proxy", 1);
   const port = process.env.PORT || 3009;
 
   // ── ENV DEBUG DUMP (remove after confirming env vars are correct) ──
@@ -58,6 +60,7 @@ const bootstrap = async () => {
   app.use(express.json());
   app.use(langMiddleware); // Detect language for all requests
   app.use(timezoneMiddleware); // Detect timezone for all requests
+  app.use(globalRateLimiter); // Apply global rate limiting to all requests
   await redisConnection();
 
   // Root Router

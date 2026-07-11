@@ -1,29 +1,57 @@
 import rateLimit from "express-rate-limit";
 
-// Generic rate limiter for auth routes
-export const authRateLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 20, // Limit each IP to 20 requests per windowMs
-  handler: (req, res) => {
-    res.status(429).json({
-      message: req.t("TOO_MANY_ATTEMPTS_LIMIT_15M"),
-      status: 429
-    });
-  },
-  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
-  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+// Configure limits via environment variables with sensible defaults
+const GLOBAL_LIMIT_WINDOW = parseInt(process.env.GLOBAL_RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000;
+const GLOBAL_LIMIT_MAX    = parseInt(process.env.GLOBAL_RATE_LIMIT_MAX)        || 100;
+
+const AUTH_LIMIT_WINDOW   = parseInt(process.env.AUTH_RATE_LIMIT_WINDOW_MS)    || 15 * 60 * 1000;
+const AUTH_LIMIT_MAX      = parseInt(process.env.AUTH_RATE_LIMIT_MAX)          || 20;
+
+const OTP_LIMIT_WINDOW    = parseInt(process.env.OTP_RATE_LIMIT_WINDOW_MS)     || 60 * 60 * 1000;
+const OTP_LIMIT_MAX       = parseInt(process.env.OTP_RATE_LIMIT_MAX)           || 5;
+
+const createRateLimiter = ({
+  windowMs,
+  limit,
+  message,
+  skipSuccessfulRequests = false,
+  keyGenerator = (req) => req.ip,
+}) =>
+  rateLimit({
+    windowMs,
+    limit,
+    skipSuccessfulRequests,
+    keyGenerator,
+    requestPropertyName:"limits",
+    standardHeaders: true,
+    legacyHeaders: false,
+    handler: (req, res) => {
+      res.status(429).json({
+        status: 429,
+        message: req.t(message),
+      });
+    },
+  });
+
+// Global rate limiter — DDoS / spam protection on every endpoint
+export const globalRateLimiter = createRateLimiter({
+  windowMs: GLOBAL_LIMIT_WINDOW,
+  limit:    GLOBAL_LIMIT_MAX,
+  message:  "TOO_MANY_ATTEMPTS_LIMIT_15M",
 });
 
-// More strict limiter for OTP requests
-export const otpRateLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour
-  max: 5, // Limit each IP to 5 OTP requests per hour
-  handler: (req, res) => {
-    res.status(429).json({
-      message: req.t("TOO_MANY_OTP_REQUESTS_1H"),
-      status: 429
-    });
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
+// Auth rate limiter — brute-force protection on sign-up / sign-in
+export const authRateLimiter = createRateLimiter({
+  windowMs:               AUTH_LIMIT_WINDOW,
+  limit:                  AUTH_LIMIT_MAX,
+  message:                "TOO_MANY_ATTEMPTS_LIMIT_15M",
+  skipSuccessfulRequests: true, // only count failed attempts
+});
+
+// OTP rate limiter — keyed by email (falls back to IP)
+export const otpRateLimiter = createRateLimiter({
+  windowMs:     OTP_LIMIT_WINDOW,
+  limit:        OTP_LIMIT_MAX,
+  message:      "TOO_MANY_OTP_REQUESTS_1H",
+  keyGenerator: (req) => req.body?.email || req.ip,
 });

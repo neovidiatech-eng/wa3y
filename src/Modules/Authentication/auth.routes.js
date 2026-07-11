@@ -19,11 +19,13 @@ import {
 import { authentication } from "../../Middlewares/Authentication.js";
 import { authorize, authorizeResource } from "../../Middlewares/AuthorizationMiddleware.js";
 import { PERMISSIONS_V2 } from "../../Constants/permissions.constants.js";
+import { authRateLimiter, otpRateLimiter } from "../../Middlewares/RateLimiter.js";
+
 const router = Router();
 
-router.post("/sign-up", validation(registeritonSchema), auth.register);
+router.post("/sign-up", authRateLimiter, validation(registeritonSchema), auth.register);
 
-router.post("/sign-in", validation(loginSchema), auth.login); //done
+router.post("/sign-in", authRateLimiter, validation(loginSchema), auth.login); //done
 
 router.post("/refresh", cookieParser(), auth.refresh); //done
 
@@ -39,19 +41,22 @@ router.post("/logout", cookieParser(), auth.logout); //done
 
 router.post(
   "/verify-account",
+  otpRateLimiter,
   validation(verifiyCodeSchema),
   auth.verifyAccount,
 ); //done
 
-router.post("/resend-otp", validation(resendOtpSchema), auth.resendOtp);
+router.post("/resend-otp", otpRateLimiter, validation(resendOtpSchema), auth.resendOtp);
 router.post(
   "/forget-password",
+  otpRateLimiter,
   validation(forgetPasswordSchema),
   auth.forgetPassword,
 );
 
 router.patch(
   "/reset-password",
+  otpRateLimiter,
   validation(resetPasswordSchema),
   auth.resetPassword,
 

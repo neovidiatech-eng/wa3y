@@ -18,6 +18,10 @@ services:
       retries: 5
     networks:
       - wa3y_network
+    resources:
+      limits:
+        cpus: '1'
+        memory: 1G 
 
   pgadmin:
     image: dpage/pgadmin4:latest
@@ -35,6 +39,10 @@ services:
         condition: service_healthy
     networks:
       - wa3y_network
+    resources:
+      limits:
+        cpus: '1'
+        memory: 500M 
 
   redis:
     image: redis:7-alpine
@@ -46,6 +54,10 @@ services:
       - redis_data:/data
     networks:
       - wa3y_network
+    resources:
+      limits:
+        cpus: '0.5'
+        memory: 500M 
 
   app:
     build:
@@ -96,6 +108,10 @@ services:
     networks:
       - wa3y_network
       - npm_network
+    resources:
+      limits:
+        cpus: '1'
+        memory: 1G 
 
 networks:
   wa3y_network:
