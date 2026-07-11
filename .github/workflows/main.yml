@@ -72,10 +72,7 @@ jobs:
             # ── Step 1: Pull latest code ──────────────────────────────────────
             git pull origin main
 
-            # ── Step 2: Write .env to project root ───────────────────────────
-            
-
-
+        
             # ── Step 3: Rebuild containers ────────────────────────────────────
             docker compose down
             docker compose up -d --build
