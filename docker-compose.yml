@@ -112,7 +112,6 @@ services:
         condition: service_started
     networks:
       - wa3y_network
-      - npm_network
     deploy:  
       resources:
         limits:
@@ -122,8 +121,6 @@ services:
 networks:
   wa3y_network:
     driver: bridge
-  npm_network:
-    external: true
 
 volumes:
   pgdata:
