@@ -1,4 +1,4 @@
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 
 // Configure limits via environment variables with sensible defaults
 const GLOBAL_LIMIT_WINDOW    = parseInt(process.env.GLOBAL_RATE_LIMIT_WINDOW_MS)    || 15 * 60 * 1000;
@@ -18,7 +18,7 @@ const createRateLimiter = ({
   limit,
   message,
   skipSuccessfulRequests = false,
-  keyGenerator = (req) => req.ip,
+  keyGenerator = (req) => ipKeyGenerator(req),
 }) =>
   rateLimit({
     windowMs,
@@ -56,7 +56,7 @@ export const otpRateLimiter = createRateLimiter({
   windowMs:     OTP_LIMIT_WINDOW,
   limit:        OTP_LIMIT_MAX,
   message:      "TOO_MANY_OTP_REQUESTS_1H",
-  keyGenerator: (req) => req.body?.email || req.ip,
+  keyGenerator: (req) => req.body?.email || ipKeyGenerator(req),
 });
 
 // Mutation rate limiter — throttles sensitive write operations

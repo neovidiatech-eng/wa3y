@@ -78,7 +78,7 @@ jobs:
             # ── Step 4: Wait for Postgres to be healthy ───────────────────────
             echo "⏳ Waiting for postgres to be healthy..."
             timeout=60
-            elapsed=0
+            elapsed=0 
             until docker inspect --format='{{.State.Health.Status}}' wa3y_postgres 2>/dev/null | grep -q 'healthy'; do
               if [ $elapsed -ge $timeout ]; then
                 echo "❌ Postgres healthcheck timed out"
