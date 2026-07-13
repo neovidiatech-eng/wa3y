@@ -331,6 +331,14 @@ export const createRecurringSchedule = asyncHandler(async (req, res, next) => {
   const effectiveCount = count || (endDate ? null : student.sessions_remaining);
 
   let dates = getDatesBetweenUTC(startDate, endDate, days, effectiveCount);
+  console.log({
+    effectiveCount,
+    count,
+    endDate,
+    student,
+    dates
+  });
+  
 
   // Session check for recurring: Cap the dates to the student's remaining sessions
   if (dates.length > student.sessions_remaining) {
