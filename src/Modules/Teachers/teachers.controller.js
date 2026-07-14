@@ -13,6 +13,7 @@ import { createAdminNotification } from "../Notifications/notifications.controll
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc.js";
 import timezone from "dayjs/plugin/timezone.js";
+import prisma from "../../database/Connection.db.js";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -222,7 +223,7 @@ export const getTeacher = asyncHandler(async (req, res, next) => {
 
   // Calculate teacher stats
   let students= await db.findMany({
-    mode:"student_teacher",
+    model:"student_teacher",
     where:{
       teacherId:id
     },
@@ -231,6 +232,8 @@ export const getTeacher = asyncHandler(async (req, res, next) => {
     }
     
   })
+
+  
 
  students= await Promise.all(
     students.map((student) => decryptUserSensitiveFields(student.student.user)),
@@ -336,8 +339,9 @@ export const getTeacher = asyncHandler(async (req, res, next) => {
 
   const teacherData = {
     ...teacher,
+    students,
+   
     stats: {
-      students,
       totalStudents: students.length,
       completedSessions: completedSessionsCount,
       todaySessions: todaySessionsCount,
