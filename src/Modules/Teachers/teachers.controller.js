@@ -233,10 +233,11 @@ export const getTeacher = asyncHandler(async (req, res, next) => {
     
   })
 
+  console.log(students);
   
 
  students= await Promise.all(
-    students.map((student) => decryptUserSensitiveFields(student.student.user)),
+    students.map((student) => decryptUserSensitiveFields(student.student)),
   );
   const completedSessionsCount = await db.count({
     model: "schedule",
