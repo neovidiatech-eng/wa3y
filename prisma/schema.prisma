@@ -176,7 +176,6 @@ model teacher {
   id              String            @id @default(uuid())
   user_id         String            @unique
   currencyId      String?
-  hour_price      Float
   meeting_link    String?
   gender          String
   active          Boolean           @default(false)
@@ -185,6 +184,7 @@ model teacher {
   updatedAt       DateTime          @updatedAt
   avgRating       Float             @default(0)
   totalReviews    Int               @default(0)
+  students        student[]         @relation("TeacherStudentRelation")
   exams           exam[]
   homeworks       homework[]
   schedules       schedule[]
@@ -193,6 +193,7 @@ model teacher {
   user            user              @relation(fields: [user_id], references: [id], onDelete: Cascade)
   teacherSubjects teacher_subject[]
   conversations   Conversation[]
+  studentTeachers student_teacher[]
 }
 
 model teacher_subject {
@@ -210,28 +211,46 @@ model teacher_subject {
 }
 
 model student {
-  id                 String          @id @default(uuid())
-  user_id            String          @unique
+  id                 String            @id @default(uuid())
+  user_id            String            @unique
   birth_date         DateTime
   gender             String
-  active             Boolean         @default(false)
+  active             Boolean           @default(false)
   planId             String?
+  paid               Boolean?          @default(false)
   country            String
-  status             String          @default("pending")
-  createdAt          DateTime        @default(now())
-  updatedAt          DateTime        @updatedAt
-  sessions           Float           @default(0)
-  sessions_attended  Float           @default(0)
-  sessions_remaining Float           @default(0)
-  avgRating          Float           @default(0)
-  totalReviews       Int             @default(0)
+  status             String            @default("pending")
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  sessions           Float             @default(0)
+  sessions_attended  Float             @default(0)
+  sessions_remaining Float             @default(0)
+  avgRating          Float             @default(0)
+  totalReviews       Int               @default(0)
   exams              exam[]
   homeworks          homework[]
   schedules          schedule[]
-  plan               Plans?          @relation(fields: [planId], references: [id], onDelete: SetNull)
-  user               user            @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  plan               Plans?            @relation(fields: [planId], references: [id], onDelete: SetNull)
+  user               user              @relation(fields: [user_id], references: [id], onDelete: Cascade)
   conversations      Conversation[]
-  parents            ParentStudent[] @relation("StudentParentRelation")
+  parents            ParentStudent[]   @relation("StudentParentRelation")
+  teachers           teacher[]         @relation("TeacherStudentRelation")
+  studentTeachers    student_teacher[]
+}
+
+model student_teacher {
+  id         String   @id @default(uuid())
+  studentId  String
+  teacherId  String
+  hour_price Float?   @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  student    student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  teacher    teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, teacherId])
+  @@index([studentId])
+  @@index([teacherId])
 }
 
 model schedule {

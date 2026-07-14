@@ -228,6 +228,14 @@ export const createSchedule = asyncHandler(async (req, res, next) => {
       where: { id: studentId },
       data: { sessions_remaining: { decrement: requiredSessions } },
     });
+
+    // Upsert student_teacher link — preserves existing custom hour_price if already set
+    await tx.upsertOne({
+      model: "student_teacher",
+      where: { studentId_teacherId: { studentId, teacherId } },
+      update: {},
+      create: { studentId, teacherId, hour_price: teacher?.hour_price ?? 0 },
+    });
   });
 
   let reminderTime;
@@ -460,6 +468,14 @@ export const createRecurringSchedule = asyncHandler(async (req, res, next) => {
   // Atomically create all valid schedules + deduct sessions in one transaction
   if (schedulesToCreate.length > 0) {
     await db.transaction(async (tx) => {
+      // Upsert student_teacher link once before the loop (not N times)
+      await tx.upsertOne({
+        model: "student_teacher",
+        where: { studentId_teacherId: { studentId, teacherId } },
+        update: {},
+        create: { studentId, teacherId, hour_price: teacher?.hour_price ?? 0 },
+      });
+
       for (const scheduleData of schedulesToCreate) {
         const schedule = await tx.create({
           model: "schedule",
@@ -699,6 +715,22 @@ export const deleteSchedule = asyncHandler(async (req, res, next) => {
       model: "schedule",
       where: { id: id },
     });
+
+    // Cleanup student_teacher link if no more sessions exist between this pair
+    const remainingSession = await tx.findFirst({
+      model: "schedule",
+      where: {
+        studentId: schedule.studentId,
+        teacherId: schedule.teacherId,
+        id: { not: id },
+      },
+    });
+    if (!remainingSession) {
+      await tx.deleteMany({
+        model: "student_teacher",
+        where: { studentId: schedule.studentId, teacherId: schedule.teacherId },
+      });
+    }
   });
 
   const [studentInfo, teacherInfo] = await Promise.all([
@@ -783,11 +815,32 @@ export const deleteRecurringGroup = asyncHandler(async (req, res, next) => {
       }
     }
 
-    // Delete all sessions
+    // Delete all sessions in this recurring group
     await tx.deleteMany({
       model: "schedule",
       where: { parent_recurring_id },
     });
+
+    // Cleanup student_teacher link if no other sessions exist between this pair
+    if (firstSchedule) {
+      const remainingSession = await tx.findFirst({
+        model: "schedule",
+        where: {
+          studentId: firstSchedule.studentId,
+          teacherId: firstSchedule.teacherId,
+          parent_recurring_id: { not: parent_recurring_id },
+        },
+      });
+      if (!remainingSession) {
+        await tx.deleteMany({
+          model: "student_teacher",
+          where: {
+            studentId: firstSchedule.studentId,
+            teacherId: firstSchedule.teacherId,
+          },
+        });
+      }
+    }
   });
 
   if (firstSchedule) {

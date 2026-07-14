@@ -9,6 +9,7 @@ import {
   getTeacherSchema,
   updateTeacherSchema,
   deleteTeacherSchema,
+  updateStudentHourPriceSchema,
 } from "./teachers.validation.js";
 import subjectsRouter from "./subjects/subjects.routes.js";
 
@@ -28,6 +29,14 @@ router.get(
   authentication(),
   authorizeResource("teachers"),
   teacherController.getMyStudents,
+);
+
+router.patch(
+  "/my-students/:teacherId/hour-price",
+  authentication(),
+  authorizeResource("teachers"),
+  validation(updateStudentHourPriceSchema),
+  teacherController.updateStudentHourPrice,
 );
 
 router.post(

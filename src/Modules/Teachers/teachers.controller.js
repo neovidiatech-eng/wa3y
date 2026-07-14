@@ -484,52 +484,104 @@ export const deleteTeacher = asyncHandler(async (req, res, next) => {
 export const getMyStudents = asyncHandler(async (req, res, next) => {
   const teacher = req.user.teacher;
 
+  if (!teacher) {
+    return errorResponse({ req, next, status: 403, message: "NOT_A_TEACHER" });
+  }
+
   const myStudents = await db.findMany({
-    model: "schedule",
-    where: {
-      teacherId: teacher.id,
-    },
+    model: "student_teacher",
+    where: { teacherId: teacher.id },
     include: {
       student: {
         include: {
           user: true,
-        },
-      },
-      subject: true,
-      teacher: {
-        include: {
-          user: true,
+          plan: true,
         },
       },
     },
   });
 
-  const students = Object.values(
-    myStudents.reduce((acc, item) => {
-      const student = item.student;
+  const studentsMap = {};
+  for (const item of myStudents) {
+    const student = item.student;
+    if (!studentsMap[student.id]) {
+      await decryptUserSensitiveFields(student.user);
 
-      if (!acc[student.id]) {
-        acc[student.id] = {
-          id: student.id,
-          name: student.user.name,
-          code: `STU-${student.id.slice(0, 3)}`,
-          email: student.user.email,
-          phone: `${student.user.code_country}${student.user.phone}`,
-          subject: {
-            name: item.subject.name_en,
-            code: `SUB-${item.subject.id.slice(0, 3)}`,
-          },
-          sessions: `${student.sessions_attended}/${student.sessions}`,
-        };
-      }
+      // Use per-student custom rate; fallback to teacher's default rate
+      const hourPrice = item.hour_price || teacher.hour_price || 0;
+      const sessionTime = student.plan?.sessionTime ?? null; // minutes
+      const sessionPrice =
+        sessionTime !== null ? (hourPrice / 60) * sessionTime : null;
 
-      return acc;
-    }, {}),
-  );
+      studentsMap[student.id] = {
+        id: student.id,
+        name: student.user.name,
+        code: `STU-${student.id.slice(0, 3)}`,
+        email: student.user.email,
+        phone: student.user.phone,
+        sessions: `${student.sessions_attended}/${student.sessions}`,
+        hour_price: hourPrice,
+        session_price: sessionPrice !== null ? parseFloat(sessionPrice.toFixed(2)) : null,
+        plan: student.plan?.name_en ?? null,
+        session_duration_minutes: sessionTime,
+      };
+    }
+  }
+
   return successResponse({
     res,
     req,
     message: "FETCH_SUCCESS",
-    data: students,
+    data: Object.values(studentsMap),
   });
 });
+
+export const updateStudentHourPrice = asyncHandler(async (req, res, next) => {
+
+  const { teacherId } = req.params;
+  const { hour_price,studentId } = req.body;
+
+  const link = await db.findFirst({
+    model: "student_teacher",
+    where: { studentId, teacherId },
+  });
+
+  if (!link) {
+    return errorResponse({
+      req,
+      next,
+      status: 404,
+      message: "STUDENT_NOT_FOUND",
+    });
+  }
+
+  const updated = await db.updateOne({
+    model: "student_teacher",
+    where: { id: link.id },
+    data: { hour_price:parseFloat(hour_price) },
+    include: {
+      student: { include: { user: true, plan: true } },
+    },
+  });
+
+  const sessionTime = updated.student?.plan?.sessionTime ?? null;
+  const sessionPrice =
+    sessionTime !== null ? parseFloat(((hour_price / 60) * sessionTime).toFixed(2)) : null;
+
+  return successResponse({
+    res,
+    req,
+    message: "UPDATE_SUCCESS",
+    data: {
+      studentId,
+      hour_price,
+      session_price: sessionPrice,
+      session_duration_minutes: sessionTime,
+    },
+  });
+});
+
+
+
+
+  

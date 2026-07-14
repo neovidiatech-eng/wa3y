@@ -36,7 +36,6 @@ export const createTeacherSchema = {
         })
         .required(),
       gender: generalFeilds.gender.required(),
-      hour_price: generalFeilds.price.required(),
       active: generalFeilds.active.required(),
       timezone: joi.string().optional(),
       meeting_link: generalFeilds.url
@@ -96,7 +95,6 @@ export const updateTeacherSchema = {
         })
         .optional(),
 
-      hour_price: generalFeilds.price.optional(),
       active: generalFeilds.active.optional(),
       subject_ids: joi.array().items(
         generalFeilds.id.messages({
@@ -116,3 +114,22 @@ export const updateTeacherSchema = {
     })
     .required(),
 };
+
+export const updateStudentHourPriceSchema = {
+  params: joi.object({
+    teacherId: generalFeilds.id.required(),
+  }),
+  body: joi.object({
+    hour_price: joi.number().positive().required().messages({
+      "number.base": "HOUR_PRICE_MUST_BE_NUMBER",
+      "number.positive": "HOUR_PRICE_MUST_BE_POSITIVE",
+      "any.required": "HOUR_PRICE_REQUIRED",
+    }),
+    studentId: generalFeilds.id.required().messages({
+      "string.base": "STUDENT_ID_STRING",
+      "string.empty": "STUDENT_ID_EMPTY",
+      "any.required": "STUDENT_ID_REQUIRED",
+    }),
+  }),
+};
+
