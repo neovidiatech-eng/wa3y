@@ -440,7 +440,6 @@ export const getTeachersCalendar = asyncHandler(async (req, res, next) => {
     model: "teacher",
     select: {
       id: true,
-      hour_price: true,
       gender: true,
       schedules: {
         where: {
