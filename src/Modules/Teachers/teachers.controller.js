@@ -221,14 +221,20 @@ export const getTeacher = asyncHandler(async (req, res, next) => {
   await decryptUserSensitiveFields(teacher.user);
 
   // Calculate teacher stats
-  const uniqueStudents = await db.findMany({
-    model: "schedule",
-    where: { teacherId: id },
-    distinct: ["studentId"],
-    select: { studentId: true },
-  });
-  const totalStudents = uniqueStudents.length;
+  let students= await db.findMany({
+    mode:"student_teacher",
+    where:{
+      teacherId:id
+    },
+    include:{
+      student:{include:{user:true}}
+    }
+    
+  })
 
+ students= await Promise.all(
+    students.map((student) => decryptUserSensitiveFields(student.student.user)),
+  );
   const completedSessionsCount = await db.count({
     model: "schedule",
     where: {
@@ -331,7 +337,8 @@ export const getTeacher = asyncHandler(async (req, res, next) => {
   const teacherData = {
     ...teacher,
     stats: {
-      totalStudents,
+      students,
+      totalStudents: students.length,
       completedSessions: completedSessionsCount,
       todaySessions: todaySessionsCount,
       upcomingSessions: upcomingSessionsCount,
