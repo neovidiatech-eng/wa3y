@@ -90,20 +90,16 @@ export const createTeacher = asyncHandler(async (req, res, next) => {
   } = req.body;
 
   // Parallel checks for existence/uniqueness
-  const [
-    checkUserByEmail,
-    checkCurrency,
-    checkSubjects,
-    getrole,
-  ] = await Promise.all([
-    db.findOne({ model: "user", where: { email } }),
-    db.findOne({ model: "currency", where: { id: currency_id } }),
-    db.findMany({
-      model: "subjects",
-      where: { id: { in: subject_ids || [] } },
-    }),
-    db.findFirst({ model: "role", where: { name: "teacher" } }),
-  ]);
+  const [checkUserByEmail, checkCurrency, checkSubjects, getrole] =
+    await Promise.all([
+      db.findOne({ model: "user", where: { email } }),
+      db.findOne({ model: "currency", where: { id: currency_id } }),
+      db.findMany({
+        model: "subjects",
+        where: { id: { in: subject_ids || [] } },
+      }),
+      db.findFirst({ model: "role", where: { name: "teacher" } }),
+    ]);
 
   if (!getrole)
     return errorResponse({
@@ -222,23 +218,32 @@ export const getTeacher = asyncHandler(async (req, res, next) => {
   await decryptUserSensitiveFields(teacher.user);
 
   // Calculate teacher stats
-  let students= await db.findMany({
-    model:"student_teacher",
-    where:{
-      teacherId:id
+  const students = await db.findMany({
+    model: "student_teacher",
+    where: {
+      teacherId: id,
     },
-    include:{
-      student:{include:{user:true}}
-    }
-    
-  })
+    include: {
+      
+      student: { include: { user: true } },
+    },
+  });
 
   console.log(students);
-  
 
- students= await Promise.all(
-    students.map((student) => decryptUserSensitiveFields(student.student)),
-  );
+const finalStudents = await Promise.all(
+  students.map(async ({ student, hour_price }) => {
+    if (!student) return null;
+
+    await decryptUserSensitiveFields(student.user);
+
+    return {
+      ...student,
+      hour_price,
+    };
+  })
+);
+
   const completedSessionsCount = await db.count({
     model: "schedule",
     where: {
@@ -333,17 +338,20 @@ export const getTeacher = asyncHandler(async (req, res, next) => {
       amount: true,
     },
   });
-  const pendingWithdrawals = pendingWithdrawalsResult.reduce((sum, w) => sum + w.amount, 0);
+  const pendingWithdrawals = pendingWithdrawalsResult.reduce(
+    (sum, w) => sum + w.amount,
+    0,
+  );
 
   const totalDue = availableBalance + pendingEarnings;
   const totalEarnings = completedEarnings + pendingEarnings;
 
   const teacherData = {
     ...teacher,
-    students,
-   
+ students: finalStudents.filter(Boolean),
+
     stats: {
-      totalStudents: students.length,
+      totalStudents: finalStudents.length,
       completedSessions: completedSessionsCount,
       todaySessions: todaySessionsCount,
       upcomingSessions: upcomingSessionsCount,
@@ -410,8 +418,6 @@ export const updateTeacher = asyncHandler(async (req, res, next) => {
         status: 400,
       });
   }
-
-
 
   // Update user data first if needed
   if (
@@ -533,7 +539,8 @@ export const getMyStudents = asyncHandler(async (req, res, next) => {
         phone: student.user.phone,
         sessions: `${student.sessions_attended}/${student.sessions}`,
         hour_price: hourPrice,
-        session_price: sessionPrice !== null ? parseFloat(sessionPrice.toFixed(2)) : null,
+        session_price:
+          sessionPrice !== null ? parseFloat(sessionPrice.toFixed(2)) : null,
         plan: student.plan?.name_en ?? null,
         session_duration_minutes: sessionTime,
       };
@@ -549,9 +556,8 @@ export const getMyStudents = asyncHandler(async (req, res, next) => {
 });
 
 export const updateStudentHourPrice = asyncHandler(async (req, res, next) => {
-
   const { teacherId } = req.params;
-  const { hour_price,studentId } = req.body;
+  const { hour_price, studentId } = req.body;
 
   const link = await db.findFirst({
     model: "student_teacher",
@@ -570,7 +576,7 @@ export const updateStudentHourPrice = asyncHandler(async (req, res, next) => {
   const updated = await db.updateOne({
     model: "student_teacher",
     where: { id: link.id },
-    data: { hour_price:parseFloat(hour_price) },
+    data: { hour_price: parseFloat(hour_price) },
     include: {
       student: { include: { user: true, plan: true } },
     },
@@ -578,7 +584,9 @@ export const updateStudentHourPrice = asyncHandler(async (req, res, next) => {
 
   const sessionTime = updated.student?.plan?.sessionTime ?? null;
   const sessionPrice =
-    sessionTime !== null ? parseFloat(((hour_price / 60) * sessionTime).toFixed(2)) : null;
+    sessionTime !== null
+      ? parseFloat(((hour_price / 60) * sessionTime).toFixed(2))
+      : null;
 
   return successResponse({
     res,
@@ -592,8 +600,3 @@ export const updateStudentHourPrice = asyncHandler(async (req, res, next) => {
     },
   });
 });
-
-
-
-
-  
