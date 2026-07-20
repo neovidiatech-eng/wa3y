@@ -181,6 +181,8 @@ export const createParent = asyncHandler(async (req, res, next) => {
     code_country,
     active,
     students = [],
+    age,
+    city,
   } = req.body;
 
   const checkUserByEmail = await db.findOne({ model: "user", where: { email } });
@@ -215,6 +217,8 @@ export const createParent = asyncHandler(async (req, res, next) => {
         roleId: parentRole.id,
         status: active === false ? "blocked" : "active",
         confirmAt: new Date(),
+        age: age ? Number(age) : undefined,
+        city: city || undefined,
       },
     });
 
@@ -297,6 +301,8 @@ export const updateParent = asyncHandler(async (req, res, next) => {
     code_country,
     active,
     students,
+    age,
+    city,
   } = req.body;
 
   const parentRole = await db.findFirst({
@@ -346,6 +352,8 @@ export const updateParent = asyncHandler(async (req, res, next) => {
         ...(encryptedPhone && { phone: encryptedPhone }),
         ...(code_country && { code_country }),
         ...(active !== undefined && { status: active === true ? "active" : "blocked" }),
+        ...(age !== undefined && { age: age ? Number(age) : null }),
+        ...(city !== undefined && { city: city || null }),
       },
     });
 

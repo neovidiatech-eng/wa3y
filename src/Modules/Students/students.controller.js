@@ -117,6 +117,8 @@ export const createStudent = asyncHandler(async (req, res, next) => {
     gender,
     active,
     timezone,
+    age,
+    city,
   } = req.body;
 
   const [checkUserByEmail, checkPlan, studentRole] = await Promise.all([
@@ -170,6 +172,8 @@ export const createStudent = asyncHandler(async (req, res, next) => {
         status: "active",
         confirmAt: new Date(),
         timezone,
+        age: age ? Number(age) : undefined,
+        city: city || undefined,
         ...(studentRole && { roleId: studentRole.id }),
       },
     });
@@ -315,6 +319,8 @@ export const updateStudent = asyncHandler(async (req, res, next) => {
     active,
     timezone,
     password,
+    age,
+    city,
   } = req.body;
 
   const student = await ensureExists({
@@ -358,7 +364,9 @@ export const updateStudent = asyncHandler(async (req, res, next) => {
     country ||
     nationality ||
     timezone ||
-    password
+    password ||
+    age !== undefined ||
+    city !== undefined
   ) {
     await db.updateOne({
       model: "user",
@@ -372,6 +380,8 @@ export const updateStudent = asyncHandler(async (req, res, next) => {
         ...(nationality && { nationality }),
         ...(timezone && { timezone }),
         ...(password && { password: encryptedPassword }),
+        ...(age !== undefined && { age: age ? Number(age) : null }),
+        ...(city !== undefined && { city: city || null }),
       },
     });
   }

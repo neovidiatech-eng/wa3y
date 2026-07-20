@@ -29,6 +29,8 @@ import { generateToken, verifyToken } from "../../Utils/Token/token.js";
 export const register = asyncHandler(async (req, res, next) => {
   const {
     name,
+    age,
+    city,
     email,
     password,
     phone,
@@ -87,7 +89,7 @@ export const register = asyncHandler(async (req, res, next) => {
   await redis.set(`${email}_otp_attempts`, 0, { EX: 60 * 10 });
 
   // 4. Send Verification Email
-  const mailResult = await sendEmail({  email, otp, lang: req.lang });
+  const mailResult = await sendEmail({ email, otp, lang: req.lang });
 
   if (!mailResult.success) {
     const errorMsg =
@@ -111,6 +113,8 @@ export const register = asyncHandler(async (req, res, next) => {
         country,
         nationality,
         timezone,
+        age: age ? Number(age) : undefined,
+        city: city || undefined,
         roleId: userRole?.id ? userRole.id : null,
       },
     });
@@ -130,6 +134,8 @@ export const register = asyncHandler(async (req, res, next) => {
         nationality,
         timezone,
         user_id: user.id,
+        age: age ? Number(age) : undefined,
+        city: city || undefined,
       }),
     );
     await redis.expire(`${email}_Student_data`, 60 * 60 * 24);
@@ -155,8 +161,85 @@ export const register = asyncHandler(async (req, res, next) => {
   });
 });
 
+/* -------------------------------------------------------------------------- */
+/*                          TEACHER SELF-REGISTRATION                          */
+/* -------------------------------------------------------------------------- */
+export const registerTeacher = asyncHandler(async (req, res, next) => {
+  const {
+    name,
+    email,
+    password,
+    phone,
+    codeCountry,
+    gender,
+    country,
+    nationality,
+    timezone,
+    age,
+    city,
+  } = req.body;
 
+  // 1. Check email uniqueness
+  const existingUser = await db.findFirst({ model: "user", where: { email } });
+  if (existingUser) {
+    return errorResponse({ req, next, message: "EMAIL_EXISTS", status: 400 });
+  }
 
+  // 2. Preparation (Hashing, Encryption, OTP)
+  const encryptedPassword = encryptPassword({ password });
+  const encryptedPhone = encryptText({ text: phone });
+  const otp = generateOtp();
+  const hashedOtp = await hash({ password: otp });
+  console.log(otp, "otp");
+
+  // 3. Redis OTP Setup
+  await redis.set(`${email}_otp_register`, hashedOtp);
+  await redis.expire(`${email}_otp_register`, 60 * 10);
+  await redis.set(`${email}_otp_attempts`, 0, { EX: 60 * 10 });
+
+  // 4. Send Verification Email
+  const mailResult = await sendEmail({ email, otp, lang: req.lang });
+  /*   if (!mailResult.success) {
+    const errorMsg =
+      mailResult.code === "ETIMEDOUT" ? "EMAIL_SERVICE_TIMEOUT" : "EMAIL_SEND_FAILED";
+    return errorResponse({ req, next, message: errorMsg, status: 500 });
+  }
+ */
+  // 5. Create unconfirmed user record + store Teacher snapshot in Redis
+  await db.transaction(async (tx) => {
+    const user = await tx.create({
+      model: "user",
+      data: {
+        name,
+        email,
+        password: encryptedPassword,
+        phone: encryptedPhone,
+        code_country: codeCountry,
+        country,
+        nationality,
+        timezone,
+        age: age ? Number(age) : undefined,
+        city: city || undefined,
+        status: "pending",
+        // No roleId / confirmAt — confirmed after OTP, fully activated after admin approval
+      },
+    });
+
+    // Store only teacher-specific fields; currency/subjects are set on admin approval
+    await redis.set(
+      `${email}_Teacher_data`,
+      JSON.stringify({ user_id: user.id, gender }),
+    );
+    await redis.expire(`${email}_Teacher_data`, 60 * 60 * 24);
+  });
+
+  return successResponse({
+    res,
+    req,
+    status: 201,
+    message: "REGISTER_SUCCESS_CHECK_EMAIL",
+  });
+});
 
 export const login = asyncHandler(async (req, res, next) => {
   const { email, password } = req.body;
@@ -183,24 +266,29 @@ export const login = asyncHandler(async (req, res, next) => {
           },
         },
       },
-      subscriptionRequests: true
+      subscriptionRequests: true,
     },
   });
 
-  const subscriptionRequest=user?.subscriptionRequests?.find(
-    (request)=>request.status==="pending"
-  )
-  if(subscriptionRequest){
+  const subscriptionRequest = user?.subscriptionRequests?.find(
+    (request) => request.status === "pending",
+  );
+  if (subscriptionRequest) {
     return errorResponse({
       req,
       next,
-      message:"USER_ALREADY_HAVE_PENDING_SUBSCRIPTION_REQUEST",
-      status:400,
+      message: "USER_ALREADY_HAVE_PENDING_SUBSCRIPTION_REQUEST",
+      status: 400,
     });
   }
 
   if (!user || !user.password) {
-    return errorResponse({ req, next, message: "USER_NOT_FOUND_OR_UNCONFIRMED", status: 404 });
+    return errorResponse({
+      req,
+      next,
+      message: "USER_NOT_FOUND_OR_UNCONFIRMED",
+      status: 404,
+    });
   }
   const matchedPassword = await verifyPassword({
     password,
@@ -223,7 +311,9 @@ export const login = asyncHandler(async (req, res, next) => {
     });
   }
 
-  const decryptedPhone = looksEncrypted(user.phone) ? await decryptText({ text: user.phone }) : user.phone;
+  const decryptedPhone = looksEncrypted(user.phone)
+    ? await decryptText({ text: user.phone })
+    : user.phone;
   user.phone = decryptedPhone;
   const accessToken = generateToken({ user, tokenType: "access" });
   const refreshToken = generateToken({ user, tokenType: "refresh" });
@@ -351,6 +441,38 @@ export const verifyAccount = asyncHandler(async (req, res, next) => {
     return errorResponse({ req, next, message: "USER_NOT_FOUND", status: 404 });
   }
 
+  // --- Teacher provisioning (email verified → create pending teacher record) ---
+  const teacherDataRaw = await redis.get(`${email}_Teacher_data`);
+  if (teacherDataRaw) {
+    const teacherData = JSON.parse(teacherDataRaw);
+
+    // Create a minimal teacher record; currency/subjects are added on admin approval
+    await db.create({
+      model: "teacher",
+      data: {
+        user: { connect: { id: teacherData.user_id } },
+        gender: teacherData.gender,
+        active: false, // inactive until admin approves
+      },
+    });
+
+    await redis.del(`${email}_Teacher_data`);
+
+    await createAdminNotification({
+      title: "طلب تسجيل مدرس جديد",
+      message: `قدّم مدرس جديد طلب تسجيل بانتظار المراجعة: ${user.name} (${user.email}).`,
+      type: "new_teacher",
+    });
+
+    return successResponse({
+      res,
+      req,
+      status: 200,
+      message: "USER_VERIFIED_SUCCESS",
+    });
+  }
+
+  // --- Student provisioning ---
   if (user?.role?.name === "student") {
     await createAdminNotification({
       title: "تم تسجيل طالب جديد",
@@ -389,7 +511,13 @@ export const forgetPassword = asyncHandler(async (req, res, next) => {
   const text = req.t("RESET_PASSWORD_EMAIL_TEXT");
   const subject = req.t("RESET_PASSWORD_SUBJECT");
 
-  const mailResult = await sendEmail({ email, otp, subject, text, lang: req.lang });
+  const mailResult = await sendEmail({
+    email,
+    otp,
+    subject,
+    text,
+    lang: req.lang,
+  });
   if (!mailResult.success) {
     return errorResponse({
       req,
@@ -684,8 +812,7 @@ export const logout = asyncHandler(async (req, res, next) => {
 });
 
 export const getLogs = asyncHandler(async (req, res, next) => {
-
-  const logs=await db.findMany({
+  const logs = await db.findMany({
     model: "auth_log",
     include: {
       user: true,
@@ -700,12 +827,11 @@ export const getLogs = asyncHandler(async (req, res, next) => {
   return successResponse({
     res,
     req,
-    data:logs,
+    data: logs,
     status: 200,
     message: "FETCH_SUCCESS",
   });
 });
-
 
 export const saveFCM = asyncHandler(async (req, res, next) => {
   const { fcmToken } = req.body;
@@ -715,11 +841,224 @@ export const saveFCM = asyncHandler(async (req, res, next) => {
     where: { id: req.user.id },
     data: { fcmToken },
   });
-  
+
   return successResponse({
     res,
     req,
     status: 200,
     message: "FCM_TOKEN_SAVED_SUCCESS",
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/*                       ADMIN – TEACHER SIGNUP REQUESTS                       */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * GET /auth/teacher-requests
+ * Lists all teachers who verified their email but are not yet approved
+ * (teacher.active = false and user.roleId = null).
+ */
+export const getTeacherRequests = asyncHandler(async (req, res, next) => {
+  const { page = 1, limit = 20 } = req.query;
+
+  const { items: requests, pagination } =
+    await db.findManyWithPaginationAndCount({
+      model: "user",
+      where: {
+        roleId: null,
+        confirmAt: { not: null }, // email verified
+      },
+      page,
+      limit,
+      include: {
+        teacher: {
+          where: { active: false, roleId: null },
+          include: {
+            teacherSubjects: { include: { subject: true } },
+            currency: true,
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+  await Promise.all(requests.map((t) => decryptUserSensitiveFields(t)));
+
+  return successResponse({
+    res,
+    req,
+    message: "FETCH_SUCCESS",
+    data: { requests, pagination },
+  });
+});
+
+/**
+ * PATCH /auth/teacher-requests/:teacherId/approve
+ * Approves a pending teacher:
+ *  - Assigns teacher role to user
+ *  - Sets teacher.active = true
+ *  - Sets user.status = "active"
+ *  - Links currency + subjects (provided by admin in body)
+ *  - Creates teacher wallet
+ */
+export const approveTeacherRequest = asyncHandler(async (req, res, next) => {
+  const { userId } = req.params;
+  const { currency_id, subject_ids, meeting_link, hour_price } = req.body;
+
+  // Find the pending teacher record
+  const user = await db.findFirst({
+    model: "user",
+    where: { id: userId, roleId: null, confirmAt: { not: null } },
+    include: { teacher: { where: { approved: false } } },
+  });
+
+  
+
+  if (!user) {
+    return errorResponse({
+      req,
+      next,
+      message: "TEACHER_REQUEST_NOT_FOUND",
+      status: 404,
+    });
+  }
+
+  // Validate currency
+  const currency = await db.findFirst({
+    model: "currency",
+    where: { id: currency_id },
+  });
+  if (!currency) {
+    return errorResponse({
+      req,
+      next,
+      message: "CURRENCY_NOT_FOUND",
+      status: 404,
+    });
+  }
+
+  // Validate subjects if provided
+  if (subject_ids && subject_ids.length > 0) {
+    const foundSubjects = await db.findMany({
+      model: "subjects",
+      where: { id: { in: subject_ids } },
+    });
+    if (foundSubjects.length !== subject_ids.length) {
+      return errorResponse({
+        req,
+        next,
+        message: "SOME_SUBJECTS_NOT_FOUND",
+        status: 404,
+      });
+    }
+  }
+
+  // Fetch teacher role
+  const teacherRole = await db.findFirst({
+    model: "role",
+    where: { name: "teacher" },
+  });
+  if (!teacherRole) {
+    return errorResponse({ req, next, message: "ROLE_NOT_FOUND", status: 404 });
+  }
+
+  // Atomic approval transaction
+  const updatedTeacher = await db.transaction(async (tx) => {
+    // Assign role + activate user
+    await tx.updateOne({
+      model: "user",
+      where: { id: user.id },
+      data: { roleId: teacherRole.id, status: "active" },
+    });
+
+    // Activate teacher + link currency/subjects/meeting_link
+    const approved = await tx.updateOne({
+      model: "teacher",
+      where: { user_id: user.id },
+      data: {
+        active: true,
+        currency: { connect: { id: currency.id } },
+        ...(meeting_link && { meeting_link }),
+        ...(hour_price !== undefined && { hour_price: Number(hour_price) }),
+        ...(subject_ids &&
+          subject_ids.length > 0 && {
+            teacherSubjects: {
+              create: subject_ids.map((sid) => ({
+                subject: { connect: { id: sid } },
+              })),
+            },
+          }),
+      },
+      include: {
+        user: true,
+        currency: true,
+        teacherSubjects: { include: { subject: true } },
+      },
+    });
+
+    // Create teacher wallet
+    const existingWallet = await tx.findFirst({
+      model: "Wallet",
+      where: { userId: user.id, type: "teacher" },
+    });
+    console.log(existingWallet);
+    if (!existingWallet) {
+      await tx.create({
+        model: "wallet",
+        data: {
+          type: "teacher",
+          ownerId: user.id,
+          balance: 0,
+          currencyId: currency.id,
+          userId: user.id,
+        },
+      });
+    }
+
+    return approved;
+  });
+
+  await decryptUserSensitiveFields(updatedTeacher.user);
+
+  return successResponse({
+    res,
+    req,
+    status: 200,
+    message: "TEACHER_APPROVED_SUCCESS",
+    data: updatedTeacher,
+  });
+});
+
+/**
+ * DELETE /auth/teacher-requests/:teacherId/reject
+ * Rejects and removes a pending teacher signup (cascades to teacher record).
+ */
+export const rejectTeacherRequest = asyncHandler(async (req, res, next) => {
+  const { userId } = req.params;
+
+  const user = await db.findFirst({
+    model: "user",
+    where: { id: userId, roleId: null, confirmAt: { not: null } },
+    include: { teacher: { where: { approved: false } } },
+  });
+
+  if (!user) {
+    return errorResponse({
+      req,
+      next,
+      message: "TEACHER_REQUEST_NOT_FOUND",
+      status: 404,
+    });
+  }
+
+  // Deleting the user cascades to the teacher record (onDelete: Cascade in schema)
+  await db.deleteOne({ model: "user", where: { id: user.id } });
+
+  return successResponse({
+    res,
+    req,
+    status: 200,
+    message: "TEACHER_REQUEST_REJECTED",
   });
 });

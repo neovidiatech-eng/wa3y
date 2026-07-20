@@ -9,8 +9,6 @@ datasource db {
 model user {
   id                   String                  @id @default(uuid())
   email                String                  @unique
-  nationality          String?
-  country              String?
   password             String?
   name                 String?
   phone                String?
@@ -23,23 +21,27 @@ model user {
   googleId             String?                 @unique
   provider             String                  @default("local")
   timezone             String?                 @default("Africa/Cairo")
+  country              String?
+  nationality          String?
   fcmToken             String?                 @default("")
+  age                  Int?                    @default(0)
+  city                 String?                 @default("unknown")
+  conversationsStudent Conversation[]          @relation("StudentConversations")
+  conversations        Conversation[]          @relation("TeacherConversations")
+  messages             Message[]
+  parentStudents       ParentStudent[]         @relation("ParentRelation")
   reviewsReceived      Review[]                @relation("ReviewsReceived")
   reviewsGiven         Review[]                @relation("ReviewsGiven")
   subscriptions        Subscription[]
   wallet               Wallet[]
   withdrawalRequests   WithdrawalRequest[]
+  authLogs             auth_log[]
   sessionRequests      session_request[]
   student              student?
   stuff                stuff?
   subscriptionRequests subscription_requests[]
   teacher              teacher?
   role                 role?                   @relation(fields: [roleId], references: [id])
-  messages             Message[]
-  conversations        Conversation[]          @relation("TeacherConversations")
-  conversationsStudent Conversation[]          @relation("StudentConversations")
-  parentStudents       ParentStudent[]         @relation("ParentRelation")
-  authLogs             auth_log[]
 
   @@index([email])
   @@index([googleId])
@@ -59,11 +61,11 @@ model role {
 model permission {
   id              String           @id @default(uuid())
   name            String           @unique
-  resource        String           @default("")
-  method          String           @default("")
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
   code            String?          @unique
+  method          String           @default("")
+  resource        String           @default("")
   rolePermissions rolePermission[]
 
   @@index([name])
@@ -97,9 +99,9 @@ model currency {
   Plans              Plans[]
   subscriptions      Subscription[]
   wallets            Wallet[]
+  withdrawalRequests WithdrawalRequest[]
   expenses           expenses[]
   teachers           teacher[]
-  withdrawalRequests WithdrawalRequest[]
 
   @@index([name_en])
   @@index([name_ar])
@@ -121,7 +123,7 @@ model Plans {
   bestSeller           Boolean                 @default(false)
   sessionsCount        Float                   @default(0)
   sessionTime          Float                   @default(0)
-  currency             currency?               @relation(fields: [currencyId], references: [id], onDelete: SetNull)
+  currency             currency?               @relation(fields: [currencyId], references: [id])
   subscriptions        Subscription[]
   students             student[]
   subscriptionRequests subscription_requests[]
@@ -138,11 +140,11 @@ model subjects {
   color           String
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
+  courses         course[]
   exams           exam[]
   homeworks       homework[]
   schedules       schedule[]
   teacherSubjects teacher_subject[]
-  courses         course[]
 
   @@index([name_en])
   @@index([name_ar])
@@ -176,7 +178,7 @@ model teacher {
   id              String            @id @default(uuid())
   user_id         String            @unique
   currencyId      String?
-  meeting_link    String?
+  hour_price      Float?             @default(0)
   gender          String
   active          Boolean           @default(false)
   roleId          String?
@@ -184,16 +186,18 @@ model teacher {
   updatedAt       DateTime          @updatedAt
   avgRating       Float             @default(0)
   totalReviews    Int               @default(0)
-  students        student[]         @relation("TeacherStudentRelation")
+  meeting_link    String?
+  approved        Boolean           @default(false)
+  conversations   Conversation[]
   exams           exam[]
   homeworks       homework[]
   schedules       schedule[]
-  currency        currency?         @relation(fields: [currencyId], references: [id], onDelete: SetNull)
-  role            role?             @relation(fields: [roleId], references: [id], onDelete: SetNull)
+  studentTeachers student_teacher[]
+  currency        currency?         @relation(fields: [currencyId], references: [id])
+  role            role?             @relation(fields: [roleId], references: [id])
   user            user              @relation(fields: [user_id], references: [id], onDelete: Cascade)
   teacherSubjects teacher_subject[]
-  conversations   Conversation[]
-  studentTeachers student_teacher[]
+  students        student[]         @relation("TeacherStudentRelation")
 }
 
 model teacher_subject {
@@ -217,7 +221,6 @@ model student {
   gender             String
   active             Boolean           @default(false)
   planId             String?
-  paid               Boolean?          @default(false)
   country            String
   status             String            @default("pending")
   createdAt          DateTime          @default(now())
@@ -227,15 +230,16 @@ model student {
   sessions_remaining Float             @default(0)
   avgRating          Float             @default(0)
   totalReviews       Int               @default(0)
+  paid               Boolean?          @default(false)
+  conversations      Conversation[]
+  parents            ParentStudent[]   @relation("StudentParentRelation")
   exams              exam[]
   homeworks          homework[]
   schedules          schedule[]
-  plan               Plans?            @relation(fields: [planId], references: [id], onDelete: SetNull)
+  plan               Plans?            @relation(fields: [planId], references: [id])
   user               user              @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  conversations      Conversation[]
-  parents            ParentStudent[]   @relation("StudentParentRelation")
-  teachers           teacher[]         @relation("TeacherStudentRelation")
   studentTeachers    student_teacher[]
+  teachers           teacher[]         @relation("TeacherStudentRelation")
 }
 
 model student_teacher {
@@ -337,7 +341,7 @@ model expenses {
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   transactions Transaction[]
-  currency     currency?     @relation(fields: [currencyId], references: [id], onDelete: SetNull)
+  currency     currency?     @relation(fields: [currencyId], references: [id])
 }
 
 model homework {
@@ -405,7 +409,7 @@ model Wallet {
   currencyId   String?
   userId       String?
   transactions Transaction[]
-  currency     currency?     @relation(fields: [currencyId], references: [id], onDelete: SetNull)
+  currency     currency?     @relation(fields: [currencyId], references: [id])
   user         user?         @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
@@ -414,12 +418,12 @@ model WithdrawalRequest {
   teacherId    String
   amount       Float
   status       String        @default("pending")
-  currencyId   String?
-  currency     currency?     @relation(fields: [currencyId], references: [id], onDelete: Cascade)
   adminNotes   String?
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
+  currencyId   String?
   transactions Transaction[]
+  currency     currency?     @relation(fields: [currencyId], references: [id], onDelete: Cascade)
   teacher      user          @relation(fields: [teacherId], references: [id], onDelete: Cascade)
 
   @@index([teacherId])
@@ -437,10 +441,10 @@ model Transaction {
   expenseId           String?
   subscriptionId      String?
   withdrawalRequestId String?
-  expense             expenses?          @relation(fields: [expenseId], references: [id], onDelete: SetNull)
-  subscription        Subscription?      @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
-  wallet              Wallet             @relation(fields: [walletId], references: [id], onDelete: Restrict)
-  withdrawalRequest   WithdrawalRequest? @relation(fields: [withdrawalRequestId], references: [id], onDelete: SetNull)
+  expense             expenses?          @relation(fields: [expenseId], references: [id])
+  subscription        Subscription?      @relation(fields: [subscriptionId], references: [id])
+  wallet              Wallet             @relation(fields: [walletId], references: [id])
+  withdrawalRequest   WithdrawalRequest? @relation(fields: [withdrawalRequestId], references: [id])
 }
 
 model ScheduleLog {
@@ -478,17 +482,16 @@ model Review {
 }
 
 model Conversation {
-  id        String    @id @default(uuid())
-  teacherId String
-  studentId String
-  teacher   teacher   @relation(fields: [teacherId], references: [id], onDelete: Cascade)
-  student   student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  messages  Message[]
-
-  userTeacher   user?   @relation("TeacherConversations", fields: [teacherUserId], references: [id])
-  userStudent   user?   @relation("StudentConversations", fields: [studentUserId], references: [id])
+  id            String    @id @default(uuid())
+  teacherId     String
+  studentId     String
   teacherUserId String?
   studentUserId String?
+  student       student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  userStudent   user?     @relation("StudentConversations", fields: [studentUserId], references: [id])
+  teacher       teacher   @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  userTeacher   user?     @relation("TeacherConversations", fields: [teacherUserId], references: [id])
+  messages      Message[]
 
   @@unique([teacherId, studentId])
 }
@@ -519,25 +522,24 @@ model course {
   pdfurl       String?
   subjectId    String
   attatchments Json?
-  subject      subjects @relation(fields: [subjectId], references: [id], onDelete: Cascade)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  subject      subjects @relation(fields: [subjectId], references: [id], onDelete: Cascade)
 }
 
 model Setting {
   id        String   @id @default(uuid())
-  discounts Json?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  discounts Json?
 }
 
 model ParentStudent {
   parentId  String
   studentId String
   createdAt DateTime @default(now())
-
-  parent  user    @relation("ParentRelation", fields: [parentId], references: [id], onDelete: Cascade)
-  student student @relation("StudentParentRelation", fields: [studentId], references: [id], onDelete: Cascade)
+  parent    user     @relation("ParentRelation", fields: [parentId], references: [id], onDelete: Cascade)
+  student   student  @relation("StudentParentRelation", fields: [studentId], references: [id], onDelete: Cascade)
 
   @@id([parentId, studentId])
   @@index([parentId])

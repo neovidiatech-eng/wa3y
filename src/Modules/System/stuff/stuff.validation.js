@@ -12,6 +12,8 @@ export const createStuffUserSchema = {
     phone: generalFeilds.phone.required(),
     code_country: generalFeilds.codeCountry.required(),
     roleId: generalFeilds.id.required(),
+    city: generalFeilds.city.optional(),
+    age: generalFeilds.age.optional(),
   })
     .custom(
       validateInternationalPhoneLength({
@@ -31,6 +33,8 @@ export const updateStuffUserSchema = {
     roleId: generalFeilds.id.optional(),
     password: generalFeilds.password.optional(),
     email: generalFeilds.email.optional(),
+    city: generalFeilds.city.optional(),
+    age: generalFeilds.age.optional(),
   })
     .custom(
       validateInternationalPhoneLength({
@@ -71,6 +75,8 @@ export const addParentSchema = {
       phone: generalFeilds.phone.required(),
       timezone: Joi.string().optional(),
       students: Joi.array().items(generalFeilds.id).required(),
+      city: generalFeilds.city.optional(),
+      age: generalFeilds.age.optional(),
     })
     .custom(
       validateInternationalPhoneLength({

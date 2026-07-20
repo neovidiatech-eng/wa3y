@@ -12,6 +12,7 @@ import { seedTeachers } from "./seeders/teachers.seeder.js";
 import { seedStudents } from "./seeders/student.seeder.js";
 import { seedSchedules } from "./seeders/schedules.seeder.js";
 import { seedTeacherSubjects } from "./seeders/teacherSubject.seeder.js";
+import { seedStudentTeachers } from "./seeders/studentTeacher.seeder.js";
 import { seedSubscriptionRequests } from "./seeders/subscriptionRequests.seeder.js";
 import { seedExpenses } from "./seeders/expenses.seeder.js";
 import { seedSubscriptions } from "./seeders/subscriptions.seeder.js";
@@ -37,6 +38,7 @@ async function main() {
   await seedTeachers();
   await seedTeacherSubjects();
   await seedStudents();
+  await seedStudentTeachers(); // seeds student_teacher junction with hour_price
   await seedSubscriptionRequests();
   await seedSchedules();
   await seedExpenses();

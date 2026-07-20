@@ -107,6 +107,15 @@ export const generalFeilds = {
     "string.empty": "Nationality cannot be empty",
     "any.required": "Nationality is required",
   }),
+  age: Joi.number().required().messages({
+    "number.base": "Age must be a number",
+    "number.empty": "Age cannot be empty",
+    "any.required": "Age is required",
+  }),
+  city: Joi.string().optional().messages({
+    "string.base": "City must be a string",
+    "string.empty": "City cannot be empty",
+  }),
   phone: Joi.string()
     .pattern(/^[0-9]{4,14}$/)
     .messages({

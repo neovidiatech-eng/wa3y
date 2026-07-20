@@ -38,6 +38,8 @@ export const createTeacherSchema = {
       gender: generalFeilds.gender.required(),
       active: generalFeilds.active.required(),
       timezone: joi.string().optional(),
+      city: generalFeilds.city.optional(),
+      age: generalFeilds.age.optional(),
       meeting_link: generalFeilds.url
         .messages({
           "string.base": "MEETING_LINK_STRING",
@@ -103,6 +105,8 @@ export const updateTeacherSchema = {
         }),
       ),
       timezone: joi.string().optional(),
+      city: generalFeilds.city.optional(),
+      age: generalFeilds.age.optional(),
     })
     .custom(
       validateInternationalPhoneLength({

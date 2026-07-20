@@ -4,16 +4,15 @@ import cookieParser from "cookie-parser";
 import { validation } from "../../Middlewares/Validation.js";
 import {
   forgetPasswordSchema,
-  googleLoginSchema,
-  googleSignupSchema,
   loginSchema,
   registeritonSchema,
-  
+  registerTeacherSchema,
+  approveTeacherRequestSchema,
+  rejectTeacherRequestSchema,
+  getTeacherRequestsSchema,
   resendOtpSchema,
   resetPasswordSchema,
-  
   saveFCM,
-  
   verifiyCodeSchema,
 } from "./auth.validation.js";
 import { authentication } from "../../Middlewares/Authentication.js";
@@ -24,6 +23,8 @@ import { authRateLimiter, otpRateLimiter } from "../../Middlewares/RateLimiter.j
 const router = Router();
 
 router.post("/sign-up", authRateLimiter, validation(registeritonSchema), auth.register);
+
+router.post("/sign-up-teacher", authRateLimiter, validation(registerTeacherSchema), auth.registerTeacher);
 
 router.post("/sign-in", authRateLimiter, validation(loginSchema), auth.login); //done
 
@@ -62,7 +63,32 @@ router.patch(
 
 );
 
-router.get("/getLogs",authentication(),authorize(PERMISSIONS_V2.DASHBOARD.READ), auth.getLogs);
-router.patch("/save-fcm",authentication(),validation(saveFCM),auth.saveFCM);
+router.get("/getLogs", authentication(), authorize(PERMISSIONS_V2.DASHBOARD.READ), auth.getLogs);
+router.patch("/save-fcm", authentication(), validation(saveFCM), auth.saveFCM);
+
+/* ── Teacher Signup Requests (Admin) ── */
+router.get(
+  "/teacher-requests",
+  authentication(),
+  authorize(PERMISSIONS_V2.TEACHERS.READ),
+  validation(getTeacherRequestsSchema),
+  auth.getTeacherRequests,
+);
+
+router.patch(
+  "/teacher-requests/:userId/approve",
+  authentication(),
+  authorize(PERMISSIONS_V2.TEACHERS.CREATE),
+  validation(approveTeacherRequestSchema),
+  auth.approveTeacherRequest,
+);
+
+router.delete(
+  "/teacher-requests/:userId/reject",
+  authentication(),
+  authorize(PERMISSIONS_V2.TEACHERS.DELETE),
+  validation(rejectTeacherRequestSchema),
+  auth.rejectTeacherRequest,
+);
 
 export default router;

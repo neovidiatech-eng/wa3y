@@ -26,6 +26,8 @@ export const createStudentSchema = {
       gender: generalFeilds.gender.required(),
       active: generalFeilds.active.required(),
       timezone: Joi.string().optional(),
+      city: generalFeilds.city.optional(),
+      age: generalFeilds.age.optional(),
     })
     .custom(
       validateInternationalPhoneLength({
@@ -55,6 +57,8 @@ export const updateStudentSchema = {
       gender: generalFeilds.gender,
       active: generalFeilds.active,
       timezone: Joi.string().optional(),
+      city: generalFeilds.city.optional(),
+      age: generalFeilds.age.optional(),
     })
     .custom(
       validateInternationalPhoneLength({

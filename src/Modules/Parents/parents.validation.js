@@ -29,6 +29,8 @@ export const createParentSchema = {
       code_country: generalFeilds.codeCountry.required(),
       active: joi.boolean().optional(),
       students: joi.array().items(generalFeilds.id).optional(),
+      city: generalFeilds.city.optional(),
+      age: generalFeilds.age.optional(),
     })
     .custom(
       validateInternationalPhoneLength({
@@ -54,6 +56,8 @@ export const updateParentSchema = {
       code_country: generalFeilds.codeCountry,
       active: joi.boolean().optional(),
       students: joi.array().items(generalFeilds.id).optional(),
+      city: generalFeilds.city.optional(),
+      age: generalFeilds.age.optional(),
     })
     .custom(
       validateInternationalPhoneLength({

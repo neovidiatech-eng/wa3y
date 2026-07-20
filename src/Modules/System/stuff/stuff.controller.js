@@ -85,7 +85,7 @@ export const getStuffById = asyncHandler(async (req, res, next) => {
 });
 
 export const createStuffUser = asyncHandler(async (req, res, next) => {
-  const { name, email, password, phone, code_country, roleId } = req.body;
+  const { name, email, password, phone, code_country, roleId, age, city } = req.body;
   let codeCountry=code_country
 
   const [checkUserByEmail, checkRole] = await Promise.all([
@@ -114,6 +114,8 @@ export const createStuffUser = asyncHandler(async (req, res, next) => {
         roleId: roleId || null,
         status: "active",
         confirmAt: new Date(),
+        age: age ? Number(age) : undefined,
+        city: city || undefined,
       },
     }),
   ]);
@@ -140,7 +142,7 @@ export const createStuffUser = asyncHandler(async (req, res, next) => {
 
 export const updateStuffUser = asyncHandler(async (req, res, next) => {
   const { id } = req.params;
-  const { name, email, password, phone, code_country, roleId } = req.body;
+  const { name, email, password, phone, code_country, roleId, age, city } = req.body;
 
   const stuff = await ensureExists({
     model: "stuff",
@@ -162,7 +164,7 @@ export const updateStuffUser = asyncHandler(async (req, res, next) => {
     : undefined;
 
   // Update user data
-  if (name || email || encryptedPassword || phone || code_country || roleId !== undefined) {
+  if (name || email || encryptedPassword || phone || code_country || roleId !== undefined || age !== undefined || city !== undefined) {
     await db.updateOne({
       model: "user",
       where: { id: stuff.user_id },
@@ -173,6 +175,8 @@ export const updateStuffUser = asyncHandler(async (req, res, next) => {
         ...(phone && { phone }),
         ...(code_country && { code_country }),
         ...(roleId !== undefined && { roleId }),
+        ...(age !== undefined && { age: age ? Number(age) : null }),
+        ...(city !== undefined && { city: city || null }),
       },
     });
   }
@@ -228,6 +232,8 @@ export const registerParent = asyncHandler(async (req, res, next) => {
     country,
     timezone,
     students,
+    age,
+    city,
   } = req.body;
 
   const checkUserByEmail = await db.findFirst({ model: "user", where: { email } });
@@ -261,6 +267,8 @@ export const registerParent = asyncHandler(async (req, res, next) => {
         roleId: userRole.id,
         confirmAt: new Date(),
         status: "active",
+        age: age ? Number(age) : undefined,
+        city: city || undefined,
       },
     });
 

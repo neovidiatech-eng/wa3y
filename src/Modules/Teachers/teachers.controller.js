@@ -87,6 +87,8 @@ export const createTeacher = asyncHandler(async (req, res, next) => {
     subject_ids,
     timezone,
     meeting_link,
+    age,
+    city,
   } = req.body;
 
   // Parallel checks for existence/uniqueness
@@ -150,6 +152,8 @@ export const createTeacher = asyncHandler(async (req, res, next) => {
         confirmAt: new Date(), // Teachers created by admin are confirmed by default
         status: "active",
         timezone,
+        age: age ? Number(age) : undefined,
+        city: city || undefined,
       },
     });
 
@@ -394,6 +398,8 @@ export const updateTeacher = asyncHandler(async (req, res, next) => {
     active,
     subject_ids,
     timezone,
+    age,
+    city,
   } = req.body;
 
   const teacher = await ensureExists({
@@ -428,7 +434,9 @@ export const updateTeacher = asyncHandler(async (req, res, next) => {
     code_country ||
     country ||
     nationality ||
-    timezone
+    timezone ||
+    age !== undefined ||
+    city !== undefined
   ) {
     await db.updateOne({
       model: "user",
@@ -442,6 +450,8 @@ export const updateTeacher = asyncHandler(async (req, res, next) => {
         ...(country && { country }),
         ...(nationality && { nationality }),
         ...(timezone && { timezone }),
+        ...(age !== undefined && { age: age ? Number(age) : null }),
+        ...(city !== undefined && { city: city || null }),
       },
     });
   }

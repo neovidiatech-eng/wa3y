@@ -10,6 +10,7 @@ const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
+// hour_price is kept here for use by student_teacher seeding; it is NOT on the teacher model
 export const teachersData = [
   {
     name: "Ahmed Teacher",
@@ -72,7 +73,7 @@ export async function seedTeachers() {
 
     const encryptedPassword = encryptPassword({ password: item.password });
 
-    // Find or create user first
+    // Upsert user
     const user = await prisma.user.upsert({
       where: { email: item.email },
       update: {
@@ -80,6 +81,7 @@ export async function seedTeachers() {
         phone: item.phone,
         code_country: item.code_country,
         roleId: role.id,
+        status: "active",
       },
       create: {
         email: item.email,
@@ -93,23 +95,40 @@ export async function seedTeachers() {
       },
     });
 
-    // Then upsert teacher linked to the user
+    // Upsert teacher — NOTE: hour_price is NOT a field on teacher anymore.
+    // It belongs to student_teacher junction table.
     await prisma.teacher.upsert({
       where: { user_id: user.id },
       update: {
         gender: item.gender,
-        hour_price: item.hour_price,
         active: item.active,
+        approved: true,
         currencyId: currency.id,
       },
       create: {
         user_id: user.id,
         gender: item.gender,
-        hour_price: item.hour_price,
         active: item.active,
+        approved: true,
         currencyId: currency.id,
       },
     });
+
+    // Create teacher wallet if not already present
+    const existingWallet = await prisma.wallet.findFirst({
+      where: { userId: user.id, type: "teacher" },
+    });
+    if (!existingWallet) {
+      await prisma.wallet.create({
+        data: {
+          type: "teacher",
+          ownerId: user.id,
+          userId: user.id,
+          balance: 0,
+          currencyId: currency.id,
+        },
+      });
+    }
   }
 
   console.log("Seeded teachers successfully.");
