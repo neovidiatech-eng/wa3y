@@ -15,6 +15,9 @@ export const createPlanSchema = {
     features: generalFeilds.features.optional(),
     currencyId: generalFeilds.id.required(),
     color: generalFeilds.color.optional(),
+    isGroup: Joi.boolean().optional().default(false),
+    maxStudents: Joi.number().integer().min(1).optional().default(1),
+    planType: Joi.string().valid("individual", "group").optional().default("individual"),
   }),
 };
 
@@ -32,6 +35,9 @@ export const updatePlanSchema = {
     features: generalFeilds.features,
     currencyId: generalFeilds.id,
     color: generalFeilds.color.optional(),
+    isGroup: Joi.boolean().optional(),
+    maxStudents: Joi.number().integer().min(1).optional(),
+    planType: Joi.string().valid("individual", "group").optional(),
   }),
   params: Joi.object({
     id: generalFeilds.id.required(),

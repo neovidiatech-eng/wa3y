@@ -40,6 +40,7 @@ export const createTeacherSchema = {
       timezone: joi.string().optional(),
       city: generalFeilds.city.optional(),
       age: generalFeilds.age.optional(),
+      group_hour_price: joi.number().min(0).optional().default(0),
       meeting_link: generalFeilds.url
         .messages({
           "string.base": "MEETING_LINK_STRING",
@@ -107,6 +108,8 @@ export const updateTeacherSchema = {
       timezone: joi.string().optional(),
       city: generalFeilds.city.optional(),
       age: generalFeilds.age.optional(),
+
+      group_hour_price: joi.number().min(0).optional(),
     })
     .custom(
       validateInternationalPhoneLength({

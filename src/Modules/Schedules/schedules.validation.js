@@ -5,13 +5,8 @@ import { notificationType } from "../../Utils/Enums/sessions.js";
 export const createSchedule = {
   body: Joi.object()
     .keys({
-      studentId: generalFeilds.id
-        .messages({
-          "string.empty": "STUDENT_ID_REQUIRED",
-          "any.required": "STUDENT_ID_REQUIRED",
-          "string.pattern.base": "STUDENT_ID_INVALID",
-        })
-        .required(),
+      studentId: generalFeilds.id.optional(),
+      studentIds: Joi.array().items(generalFeilds.id).optional(),
       teacherId: generalFeilds.id
         .messages({
           "string.empty": "TEACHER_ID_REQUIRED",
@@ -66,6 +61,8 @@ export const createSchedule = {
           "any.required": "NOTIFICATION_TIME_REQUIRED",
           "string.pattern.base": "NOTIFICATION_TIME_INVALID",
         }),
+      isGroup: Joi.boolean().optional().default(false),
+      maxStudents: Joi.number().integer().min(1).optional().default(1),
     })
     .required(),
 };
@@ -73,13 +70,16 @@ export const createSchedule = {
 export const createRecurringSchedule = {
   body: Joi.object()
     .keys({
-      studentId: generalFeilds.id.required(),
+      studentId: generalFeilds.id.optional(),
+      studentIds: Joi.array().items(generalFeilds.id).optional(),
       teacherId: generalFeilds.id.required(),
       subject_id: generalFeilds.id.required(),
       title: generalFeilds.name.required(),
       description: generalFeilds.description.optional(),
       link: generalFeilds.url.required(),
       notes: generalFeilds.description.optional(),
+      isGroup: Joi.boolean().optional().default(false),
+      maxStudents: Joi.number().integer().min(1).optional().default(1),
       startTime: Joi.string()
         .regex(/^([01]\d|2[0-3]):?([0-5]\d)$/)
         .optional()

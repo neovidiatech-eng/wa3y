@@ -115,6 +115,7 @@ export const getAllSchedules = asyncHandler(async (req, res, next) => {
 export const createSchedule = asyncHandler(async (req, res, next) => {
   const {
     studentId,
+    studentIds = [],
     teacherId,
     subject_id,
     title,
@@ -124,6 +125,8 @@ export const createSchedule = asyncHandler(async (req, res, next) => {
     notes,
     date,
     start_time,
+    isGroup = false,
+    maxStudents = 1,
   } = req.body;
 
   /* check if student and teacher exist */
@@ -219,11 +222,13 @@ export const createSchedule = asyncHandler(async (req, res, next) => {
 
   // Atomically create the schedule and deduct the session
   let newSchedule;
+  const effectiveStudentIds = Array.from(new Set([studentId, ...studentIds].filter(Boolean)));
+
   await db.transaction(async (tx) => {
     newSchedule = await tx.create({
       model: "schedule",
       data: {
-        studentId,
+        studentId: isGroup ? null : studentId,
         teacherId,
         title,
         description,
@@ -232,22 +237,35 @@ export const createSchedule = asyncHandler(async (req, res, next) => {
         subjectId: subject_id,
         start_time: startTime,
         end_time: endTime,
+        isGroup,
+        maxStudents: isGroup ? maxStudents : 1,
       },
     });
 
-    await tx.updateOne({
-      model: "student",
-      where: { id: studentId },
-      data: { sessions_remaining: { decrement: requiredSessions } },
-    });
+    for (const sId of effectiveStudentIds) {
+      if (isGroup) {
+        await tx.create({
+          model: "GroupScheduleStudent",
+          data: {
+            scheduleId: newSchedule.id,
+            studentId: sId,
+          },
+        });
+      }
 
-    // Upsert student_teacher link — preserves existing custom hour_price if already set
-    await tx.upsertOne({
-      model: "student_teacher",
-      where: { studentId_teacherId: { studentId, teacherId } },
-      update: {},
-      create: { studentId, teacherId, hour_price: teacher?.hour_price ?? 0 },
-    });
+      await tx.updateOne({
+        model: "student",
+        where: { id: sId },
+        data: { sessions_remaining: { decrement: requiredSessions } },
+      });
+
+      await tx.upsertOne({
+        model: "student_teacher",
+        where: { studentId_teacherId: { studentId: sId, teacherId } },
+        update: {},
+        create: { studentId: sId, teacherId, hour_price: teacher?.hour_price ?? 0 },
+      });
+    }
   });
 
   let reminderTime;
@@ -1538,7 +1556,28 @@ async function finalizeSession(scheduleId, t) {
       const sessionDuration =
         (session.end_time - session.start_time) / (60 * 1000 * 60);
 
-      let payoutAmount = sessionDuration * session.teacher.hour_price;
+      let effectiveRate = 0;
+      if (session.isGroup) {
+        // Group Session: Calculate rate from teacher.group_hour_price
+        effectiveRate = session.teacher.group_hour_price || session.teacher.hour_price || 0;
+      } else {
+        // 1-on-1 Session: Calculate rate from student_teacher model for (studentId, teacherId)
+        let stLink = null;
+        if (session.studentId && session.teacherId) {
+          stLink = await tx.findOne({
+            model: "student_teacher",
+            where: {
+              studentId_teacherId: {
+                studentId: session.studentId,
+                teacherId: session.teacherId,
+              },
+            },
+          });
+        }
+        effectiveRate = (stLink && stLink.hour_price > 0) ? stLink.hour_price : (session.teacher.hour_price || 0);
+      }
+
+      let payoutAmount = sessionDuration * effectiveRate;
 
       const teacherWallet = await tx.findFirst({
         model: "Wallet",

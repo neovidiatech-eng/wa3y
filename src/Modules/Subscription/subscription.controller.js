@@ -24,7 +24,7 @@ export const getallSubscriptions = asyncHandler(async (req, res, next) => {
     });
 
   const subscriptionsData = await Promise.all(
-    subscriptions.map(async (subscription) => {
+    subscriptions?.items?.map(async (subscription) => {
       const phone = looksEncrypted(subscription.user.phone)
         ? await decryptText({ text: subscription.user.phone })
         : subscription.user.phone;

@@ -82,7 +82,7 @@ export const createTeacher = asyncHandler(async (req, res, next) => {
     nationality,
     currency_id,
     gender,
-    hour_price,
+    group_hour_price,
     active,
     subject_ids,
     timezone,
@@ -163,7 +163,7 @@ export const createTeacher = asyncHandler(async (req, res, next) => {
         user: { connect: { id: user.id } },
         currency: { connect: { id: checkCurrency.id } },
         gender,
-        hour_price,
+        group_hour_price,
         meeting_link,
         active: active ?? false,
         teacherSubjects: {
@@ -395,7 +395,7 @@ export const updateTeacher = asyncHandler(async (req, res, next) => {
     currency_id,
     gender,
     hour_price,
-    active,
+    group_hour_price,    active,
     subject_ids,
     timezone,
     age,
@@ -463,7 +463,7 @@ export const updateTeacher = asyncHandler(async (req, res, next) => {
     data: {
       ...(currency_id && { currency: { connect: { id: currency_id } } }),
       ...(gender && { gender }),
-      ...(hour_price !== undefined && { hour_price }),
+      ...(group_hour_price !== undefined && { group_hour_price }),
       ...(active !== undefined && { active }),
       ...(subject_ids && {
         teacherSubjects: {
