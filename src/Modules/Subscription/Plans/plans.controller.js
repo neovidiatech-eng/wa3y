@@ -41,6 +41,7 @@ export const createPlan = asyncHandler(async (req, res, next) => {
     features,
     sessionTime,
     currencyId,
+    color,
   } = req.body;
   const existPlan = await db.findFirst({
     model: "Plans",
@@ -85,6 +86,7 @@ export const createPlan = asyncHandler(async (req, res, next) => {
       features: features || [],
       sessionTime: parseInt(sessionTime),
       currencyId,
+      ...(color && { color }),
     },
   });
   if (!plan) {
@@ -119,6 +121,7 @@ export const updatePlan = asyncHandler(async (req, res, next) => {
     features,
     sessionTime,
     currencyId,
+    color,
   } = req.body;
 
   const plan = await db.findOne({
@@ -135,7 +138,6 @@ export const updatePlan = asyncHandler(async (req, res, next) => {
     });
   }
 
-
   // تجهيز البيانات للتحديث (فقط الحقول المرسلة)
   const data = {};
 
@@ -149,7 +151,24 @@ export const updatePlan = asyncHandler(async (req, res, next) => {
   if (bestSeller !== undefined) data.bestSeller = bestSeller;
   if (features !== undefined) data.features = features;
   if (sessionTime !== undefined) data.sessionTime = sessionTime;
-  if (currencyId !== undefined) data.currencyId = currencyId;
+  if (currencyId !== undefined) {
+    const existCurrency = await db.findOne({
+      model: "currency",
+      where: {
+        id: currencyId,
+      },
+    });
+    if (!existCurrency) {
+      return errorResponse({
+        next,
+        req,
+        message: "CURRENCY_NOT_FOUND",
+        status: 404,
+      });
+    }
+    data.currencyId = currencyId;
+  }
+  if (color !== undefined) data.color = color;
 
   const updatedPlan = await db.updateOne({
     model: "Plans",

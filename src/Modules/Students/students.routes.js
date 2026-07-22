@@ -6,6 +6,7 @@ import {
   createStudentSchema,
   updateStudentSchema,
   studentIdSchema,
+  updateStudentPlanSchema,
 } from "./students.validation.js";
 import * as studentController from "../Students/students.controller.js";
 
@@ -16,6 +17,14 @@ router.get(
   authentication(),
   authorizeResource("students"),
   studentController.getAllStudents,
+);
+
+router.patch(
+  "/updatePlan/:id",
+  authentication(),
+  authorizeResource("students"),
+  validation(updateStudentPlanSchema),
+  studentController.updateStudentPlan,
 );
 
 router.get(

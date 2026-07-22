@@ -10,6 +10,7 @@ import {
   encryptPassword,
 } from "../../Utils/Security/index.js";
 import { createAdminNotification } from "../Notifications/notifications.controller.js";
+import { studentPaidStatus } from "../../Utils/Enums/studentts.js";
 
 export const getAllStudents = asyncHandler(async (req, res, next) => {
   const { search, country, plans, page = 1, limit = 10, active } = req.query;
@@ -51,6 +52,7 @@ export const getAllStudents = asyncHandler(async (req, res, next) => {
             },
           },
           plan: true,
+          rank: true,
         },
       }),
       db.count({ model: "student" }),
@@ -85,9 +87,10 @@ export const getAllStudents = asyncHandler(async (req, res, next) => {
 });
 
 export const getStudentsStats = asyncHandler(async (req, res, next) => {
-  const [totalCount, activeCount] = await Promise.all([
+  const [totalCount, activeCount,unpaidCount] = await Promise.all([
     db.count({ model: "student" }),
     db.count({ model: "student", where: { active: true } }),
+    db.count({ model: "student", where: { paid: studentPaidStatus.Unpaid } }),
   ]);
 
   return successResponse({
@@ -97,6 +100,7 @@ export const getStudentsStats = asyncHandler(async (req, res, next) => {
     data: {
       totalCount,
       activeCount,
+      unpaidCount,
       inactiveCount: totalCount - activeCount,
     },
     status: 200,
@@ -121,14 +125,34 @@ export const createStudent = asyncHandler(async (req, res, next) => {
     city,
   } = req.body;
 
-  const [checkUserByEmail, checkPlan, studentRole] = await Promise.all([
+  let checkPlan;
+  console.log(planId);
+
+  const [checkUserByEmail, studentRole] = await Promise.all([
     db.findOne({ model: "user", where: { email } }),
-    db.findOne({ model: "Plans", where: { id: planId } }),
+
     db.findFirst({
       model: "role",
       where: { name: { equals: "student", mode: "insensitive" } },
     }),
   ]);
+
+  if (planId) {
+    checkPlan = await db.findOne({
+      model: "Plans",
+      where: { id: planId },
+      include: {
+        currency: true,
+      },
+    });
+    if (!checkPlan)
+      return errorResponse({
+        req,
+        next,
+        message: "PLAN_NOT_FOUND",
+        status: 404,
+      });
+  }
 
   if (checkUserByEmail)
     return errorResponse({
@@ -137,8 +161,7 @@ export const createStudent = asyncHandler(async (req, res, next) => {
       message: "EMAIL_EXISTS",
       status: 400,
     });
-  if (!checkPlan)
-    return errorResponse({ req, next, message: "PLAN_NOT_FOUND", status: 404 });
+  console.log(checkPlan);
 
   const encryptedPassword = encryptPassword({ password });
 
@@ -184,52 +207,18 @@ export const createStudent = asyncHandler(async (req, res, next) => {
       data: {
         user: { connect: { id: user.id } },
         country,
-        plan: { connect: { id: planId } },
+        plan: planId ? { connect: { id: planId } } : undefined,
         birth_date: new Date(birth_date),
         gender,
         active: active ?? false,
         status: "approved",
-        sessions: checkPlan.sessionsCount,
+        sessions: checkPlan?.sessionsCount || 0,
         sessions_attended: 0,
-        sessions_remaining: checkPlan.sessionsCount,
+        sessions_remaining: checkPlan?.sessionsCount || 0,
       },
     });
 
     // 3. Create subscription record
-    const subscription = await tx.create({
-      model: "Subscription",
-      data: {
-        userId: user.id,
-        planId,
-        status: "active",
-        amount: parseFloat(checkPlan.price) || 0,
-        currencyId: checkPlan.currencyId,
-        startDate: new Date(),
-        paidAt: new Date(),
-      },
-    });
-
-    const amount = parseFloat(checkPlan.price) || 0;
-
-    // 4. Create ledger transaction record
-    await tx.create({
-      model: "Transaction",
-      data: {
-        walletId: systemWallet.id,
-        type: "subscription",
-        amount,
-        status: "completed",
-        reason: `subscription for ${user.name}`,
-        subscriptionId: subscription.id,
-      },
-    });
-
-    // 5. Increment system wallet balance
-    await tx.updateOne({
-      model: "Wallet",
-      where: { id: systemWallet.id },
-      data: { balance: { increment: amount } },
-    });
   });
 
   await createAdminNotification({
@@ -256,6 +245,7 @@ export const getStudentById = asyncHandler(async (req, res, next) => {
       include: {
         user: true,
         plan: true,
+        rank: true,
       },
       message: "STUDENT_NOT_FOUND",
     }),
@@ -421,6 +411,124 @@ export const deleteStudent = asyncHandler(async (req, res, next) => {
     res,
     req,
     message: "DELETE_SUCCESS",
+    status: 200,
+  });
+});
+
+export const updateStudentPlan = asyncHandler(async (req, res, next) => {
+  const { id } = req.params;
+  const { planId } = req.body;
+  let plan;
+  console.log(req.lang);
+  
+
+  const student = await ensureExists({
+    model: "student",
+    where: { id },
+    include: {
+      user: true,
+      plan: true,
+    },
+    message: "STUDENT_NOT_FOUND",
+  });
+
+  console.log(student);
+  
+  if( student.sessions_attended > 0 ){
+    return errorResponse({
+      req,
+      next,
+      message: "STUDENT_ALREADY_HAVE_SESSIONS",
+      status: 404,
+    });
+  }
+
+  if (planId && planId === student.planId ) {
+    return errorResponse({
+      req,
+      next,
+      message: "STUDENT_ALREADY_HAVE_PLAN",
+      status: 404,
+    });
+  }
+
+  if (planId) {
+    plan = await db.findOne({ model: "Plans", where: { id: planId } });
+
+    if (!plan)
+      return errorResponse({
+        req,
+        next,
+        message: "PLAN_NOT_FOUND",
+        status: 404,
+      });
+  }
+
+  const updatedStudent = await db.transaction(async (tx) => {
+    const student = await tx.updateOne({
+      model: "student",
+      where: { id },
+      data: {
+        plan: { connect: { id: planId } },
+        sessions: plan?.sessionsCount || 0,
+        sessions_attended: 0,
+        sessions_remaining: plan?.sessionsCount || 0,
+      },
+      include: { user: true, plan: true },
+    });
+    const subscription = await tx.create({
+      model: "Subscription",
+      data: {
+        userId: student.user_id,
+        planId,
+        status: "active",
+        amount: parseFloat(plan?.price) || 0,
+        currencyId: plan?.currencyId,
+        startDate: new Date(),
+        paidAt: new Date(),
+      },
+    });
+
+    const amount = parseFloat(plan?.price) || 0;
+    
+    const systemWallet = await tx.findFirst({
+      model: "Wallet",
+      where: { type: "system" },
+    });
+
+    const reason = {
+      en: `Subscription for ${student.user.name}`,
+      ar: `اشتراك للطالب ${student.user.name}`,
+    };
+
+    // 4. Create ledger transaction record
+    await tx.create({
+      model: "Transaction",
+      data: {
+        walletId: systemWallet.id,
+        type: "subscription",
+        amount,
+        status: "completed",
+        reason, 
+        subscriptionId: subscription.id,
+      },
+    });
+
+    // 5. Increment system wallet balance
+    await tx.updateOne({
+      model: "Wallet",
+      where: { id: systemWallet.id },
+      data: { balance: { increment: amount } },
+    });
+  });
+
+  await decryptUserSensitiveFields(student.user);
+
+  return successResponse({
+    res,
+    req,
+    message: "UPDATE_SUCCESS",
+    data: updatedStudent,
     status: 200,
   });
 });

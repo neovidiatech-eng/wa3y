@@ -14,6 +14,7 @@ import {
 import { nanoid } from "nanoid";
 
 import * as db from "../../database/dbService.js";
+import { checkAndUpdateStudentRank } from "../Ranks/ranks.service.js";
 import { notificationType } from "../../Utils/Enums/sessions.js";
 import {
   addNotificationJob,
@@ -28,6 +29,7 @@ import {
 import dayjs from "dayjs";
 import { getSettingsData } from "../Settings/settings.controller.js";
 import { createAdminNotification, createNotification, createTeacherAndStudentNotification } from "../Notifications/notifications.controller.js";
+import { studentPaidStatus } from "../../Utils/Enums/studentts.js";
 
 /* ------------------------------------------------------------------ */
 /*            Admin creates multiple sessions in one request            */
@@ -150,6 +152,16 @@ export const createSchedule = asyncHandler(async (req, res, next) => {
     duration: student.plan?.sessionTime,
     tz: req.timezone,
   });
+
+  const nowsessions = getNowUTC().toDate();
+  if (startTime < nowsessions) {
+    return errorResponse({
+      req,
+      next,
+      status: 400,
+      message: "CANNOT_CREATE_SESSION_IN_PAST",
+    });
+  }
 
   /* check if student and teacher are available at the same time */
   const [studentSchedule, teacherSchedule] = await Promise.all([
@@ -311,6 +323,8 @@ export const createRecurringSchedule = asyncHandler(async (req, res, next) => {
     endDate, // "2026-04-26"
     count, // 10
     notification_Time,
+    sessions = [],
+    customSessions = [],
   } = req.body;
   const skipedSchedules = [];
   const perSessionUnits = 1;
@@ -335,28 +349,64 @@ export const createRecurringSchedule = asyncHandler(async (req, res, next) => {
     });
   }
 
-  // If count is not provided but student has sessions, we could use sessions_remaining as a default count if endDate is missing
-  const effectiveCount = count || (endDate ? null : student.sessions_remaining);
+  let sessionItems = [];
 
-  let dates = getDatesBetweenUTC(startDate, endDate, days, effectiveCount);
-  console.log({
-    effectiveCount,
-    count,
-    endDate,
-    student,
-    dates
-  });
-  
+  if (Array.isArray(sessions) && sessions.length > 0) {
+    sessionItems = sessions.map((item, i) => {
+      let start_time;
+      let sessionDate;
 
-  // Session check for recurring: Cap the dates to the student's remaining sessions
-  if (dates.length > student.sessions_remaining) {
-    dates = dates.slice(
+      if (item.start_time) {
+        start_time = new Date(item.start_time);
+        sessionDate = start_time;
+      } else {
+        sessionDate = new Date(item.date);
+        const itemStartTime = item.startTime || timeStart;
+        start_time = combineDateAndTime(sessionDate, itemStartTime, req.timezone);
+      }
+
+      const end_time = getEndTime({
+        startTime: start_time,
+        duration: student.plan?.sessionTime,
+        tz: req.timezone,
+      });
+
+      return { date: sessionDate, start_time, end_time };
+    });
+  } else {
+    // Fallback: auto generate from startDate, endDate/count, days
+    const effectiveCount = count || (endDate ? null : student.sessions_remaining);
+    let dates = getDatesBetweenUTC(startDate, endDate, days, effectiveCount);
+
+    sessionItems = dates.map((d, i) => {
+      const dateStr = dayjs.tz(d, req.timezone).format("YYYY-MM-DD");
+      const override = customSessions.find(
+        (c) => (c.date && c.date === dateStr) || (c.index !== undefined && c.index === i)
+      );
+
+      const sessionDate = override?.newDate ? new Date(override.newDate) : d;
+      const sessionStartTime = override?.startTime || timeStart;
+
+      const start_time = combineDateAndTime(sessionDate, sessionStartTime, req.timezone);
+      const end_time = getEndTime({
+        startTime: start_time,
+        duration: student.plan?.sessionTime,
+        tz: req.timezone,
+      });
+
+      return { date: sessionDate, start_time, end_time };
+    });
+  }
+
+  // Session check for recurring: Cap the sessionItems to the student's remaining sessions
+  if (sessionItems.length > student.sessions_remaining) {
+    sessionItems = sessionItems.slice(
       0,
       Math.floor(student.sessions_remaining / perSessionUnits),
     );
   }
 
-  if (dates.length === 0) {
+  if (sessionItems.length === 0) {
     return errorResponse({
       req,
       next,
@@ -373,17 +423,9 @@ export const createRecurringSchedule = asyncHandler(async (req, res, next) => {
   const notificationJobs = [];
   const parentRecurringId = `rec_${nanoid(10)}`;
 
-  const allDatesStart = dates.map((d) => {
-    return combineDateAndTime(d, timeStart, req.timezone);
-  });
   // Determine the overall window for the batch conflict query
-  const windowStart = allDatesStart[0];
-  const lastDate = allDatesStart[allDatesStart.length - 1];
-  const windowEnd = getEndTime({
-    startTime: lastDate,
-    duration: student.plan?.sessionTime,
-    tz: req.timezone,
-  });
+  const windowStart = new Date(Math.min(...sessionItems.map((s) => s.start_time.getTime())));
+  const windowEnd = new Date(Math.max(...sessionItems.map((s) => s.end_time.getTime())));
 
   // Pre-fetch ALL conflicts in 2 queries instead of 2-per-date (N+1 fix)
   const [allTeacherConflicts, allStudentConflicts] = await Promise.all([
@@ -409,14 +451,19 @@ export const createRecurringSchedule = asyncHandler(async (req, res, next) => {
     }),
   ]);
 
-  for (const date of dates) {
-    const start_time = combineDateAndTime(date, timeStart, req.timezone);
+  const now = getNowUTC().toDate();
 
-    const end_time = getEndTime({
-      startTime: start_time,
-      duration: student.plan?.sessionTime,
-      tz: req.timezone,
-    });
+  for (const sessionItem of sessionItems) {
+    const { date, start_time, end_time } = sessionItem;
+
+    if (start_time < now) {
+      skipedSchedules.push({
+        date: dayjs.tz(date, req.timezone).format("YYYY-MM-DD"),
+        title,
+        conflict: "SESSION_IN_PAST",
+      });
+      continue;
+    }
 
     // In-memory overlap check (avoids DB query per iteration)
     const teacher_conflict = allTeacherConflicts.find(
@@ -462,6 +509,16 @@ export const createRecurringSchedule = asyncHandler(async (req, res, next) => {
       start_time,
       notification_Time,
       index: schedulesToCreate.length - 1,
+    });
+  }
+
+  if (schedulesToCreate.length === 0 && skipedSchedules.length > 0) {
+    return errorResponse({
+      req,
+      next,
+      status: 400,
+      message: "CANNOT_CREATE_SESSION_IN_PAST",
+      data: { skipedSchedules },
     });
   }
 
@@ -1051,6 +1108,9 @@ export const joinSession = asyncHandler(async (req, res, next) => {
   const user = req.user;
   const role = user.role?.name?.toLowerCase();
 
+  const settings = await getSettingsData();
+  
+
   const session = await db.findOne({ model: "schedule", where: { id } });
   if (!session) {
     return errorResponse({
@@ -1060,6 +1120,40 @@ export const joinSession = asyncHandler(async (req, res, next) => {
       message: "SESSION_NOT_FOUND",
     });
   }
+  if (role === "student") {
+    const student = await db.findOne({
+      model: "student",
+      where: { user_id: user.id },
+    });
+
+    if (!student) {
+      return errorResponse({
+        req,
+        next,
+        status: 404,
+        message: "STUDENT_NOT_FOUND",
+      });
+    }
+   
+    
+
+    if (
+      student.paid === studentPaidStatus.Unpaid &&
+      settings?.studentCanJoin === false
+    ) {
+      return errorResponse({
+        req,
+        next,
+        status: 400,
+        message: "STUDENT_MUST_PAY",
+      });
+    }
+  }
+  
+  
+
+
+
 
   if (session.status === "cancelled") {
     return errorResponse({
@@ -1142,7 +1236,7 @@ export const joinSession = asyncHandler(async (req, res, next) => {
     await db.updateOne({
       model: "schedule",
       where: { id },
-      data: { status: "ongoing" },
+      data: { status: "ongoing" },  
     });
   }
 
@@ -1283,7 +1377,9 @@ export const submitReview = asyncHandler(async (req, res, next) => {
     });
   }
 
-  let log = session.scheduleLogs?.[0];
+  let log = Array.isArray(session.scheduleLogs)
+    ? session.scheduleLogs[0]
+    : session.scheduleLogs;
 
   if (!log) {
     log = await db.upsertOne({
@@ -1301,6 +1397,7 @@ export const submitReview = asyncHandler(async (req, res, next) => {
     log.isTeacherCompleted === true || Boolean(log.joinTime_teacher);
 
   const studentActuallyAttended = Boolean(log.joinTime_student);
+  
 
   // الطالب الغايب ماينفعش يعمل review
   if (isStudent && !studentActuallyAttended) {
@@ -1347,106 +1444,10 @@ export const submitReview = asyncHandler(async (req, res, next) => {
 
   let review;
 
+  // Ensure session is finalized/settled before saving review
+  await finalizeSession(id, req.t);
+
   await db.transaction(async (tx) => {
-    /*
-      Settlement should happen once only.
-      Do not depend on req.body.teacherAttended or req.body.studentAttended.
-    */
-    if (log.isStudentAttended !== studentActuallyAttended) {
-      await tx.updateOne({
-        model: "scheduleLog",
-        where: { id: log.id },
-        data: { isStudentAttended: studentActuallyAttended },
-      });
-    }
-
-    if (session.status === "ongoing") {
-      if (!teacherActuallyAttended) {
-        // Teacher absent => refund student
-        await tx.updateOne({
-          model: "student",
-          where: { id: session.studentId },
-          data: {
-            sessions_remaining: { increment: 1 },
-          },
-        });
-
-        await tx.updateOne({
-          model: "schedule",
-          where: { id },
-          data: {
-            status: "missed",
-          },
-        });
-      } else {
-        // Teacher attended => calculate payout
-        const sessionDuration =
-          (session.end_time - session.start_time) / (60 * 1000 * 60);
-
-        let payoutAmount = sessionDuration * session.teacher.hour_price;
-
-        const isLate = log.isTeacherLate === true;
-
-        if (isLate && log.joinTime_teacher) {
-          const settings = await getSettingsData();
-          const rules = settings.lateDiscountRules || [];
-
-          const diffMinutes =
-            (log.joinTime_teacher.getTime() - session.start_time.getTime()) /
-            (60 * 1000);
-
-          const sortedRules = [...rules].sort(
-            (a, b) => b.lateMinutes - a.lateMinutes,
-          );
-
-          const matchedRule = sortedRules.find(
-            (rule) => diffMinutes >= rule.lateMinutes,
-          );
-
-          if (matchedRule) {
-            const discountFactor = 1 - matchedRule.discountPercentage / 100;
-            payoutAmount = payoutAmount * discountFactor;
-          }
-        }
-
-        const teacherWallet = await tx.findFirst({
-          model: "Wallet",
-          where: {
-            userId: session.teacher.user_id,
-          },
-        });
-
-        if (teacherWallet) {
-          await tx.updateOne({
-            model: "Wallet",
-            where: { id: teacherWallet.id },
-            data: {
-              balance: { increment: payoutAmount },
-            },
-          });
-        }
-
-        await tx.updateOne({
-          model: "schedule",
-          where: { id },
-          data: {
-            status: "completed",
-          },
-        });
-
-        // Only count attended session if student really attended
-        if (studentActuallyAttended) {
-          await tx.updateOne({
-            model: "student",
-            where: { id: session.studentId },
-            data: {
-              sessions_attended: { increment: 1 },
-            },
-          });
-        }
-      }
-    }
-
     review = await tx.create({
       model: "Review",
       data: {
@@ -1496,22 +1497,104 @@ async function finalizeSession(scheduleId, t) {
   if (!session || session.status === "completed" || session.status === "missed")
     return;
 
-  const log = session.scheduleLogs[0];
+  const log = Array.isArray(session.scheduleLogs)
+    ? session.scheduleLogs[0]
+    : session.scheduleLogs;
   if (!log) return;
 
-  let newStatus = "completed";
-  if (!log.joinTime_student && !log.joinTime_teacher) {
-    newStatus = "missed";
-  }
+  const teacherActuallyAttended =
+    log.isTeacherCompleted === true || Boolean(log.joinTime_teacher);
 
-  await db.updateOne({
-    model: "schedule",
-    where: { id: scheduleId },
-    data: { status: newStatus },
+  const studentActuallyAttended = Boolean(log.joinTime_student);
+
+  await db.transaction(async (tx) => {
+    if (log.isStudentAttended !== studentActuallyAttended) {
+      await tx.updateOne({
+        model: "scheduleLog",
+        where: { id: log.id },
+        data: { isStudentAttended: studentActuallyAttended },
+      });
+    }
+
+    if (!teacherActuallyAttended) {
+      // Teacher absent => refund student
+      await tx.updateOne({
+        model: "student",
+        where: { id: session.studentId },
+        data: {
+          sessions_remaining: { increment: 1 },
+        },
+      });
+
+      await tx.updateOne({
+        model: "schedule",
+        where: { id: scheduleId },
+        data: {
+          status: "missed",
+        },
+      });
+    } else {
+      // Teacher attended => calculate payout
+      const sessionDuration =
+        (session.end_time - session.start_time) / (60 * 1000 * 60);
+
+      let payoutAmount = sessionDuration * session.teacher.hour_price;
+
+      const teacherWallet = await tx.findFirst({
+        model: "Wallet",
+        where: {
+          userId: session.teacher.user_id,
+        },
+      });
+
+      if (teacherWallet) {
+        await tx.updateOne({
+          model: "Wallet",
+          where: { id: teacherWallet.id },
+          data: {
+            balance: { increment: payoutAmount },
+          },
+        });
+      }
+
+      await tx.updateOne({
+        model: "schedule",
+        where: { id: scheduleId },
+        data: {
+          status: "completed",
+        },
+      });
+
+      const settings = await tx.findFirst({
+        model: "setting",
+      });
+
+      // Only count attended session if student really attended
+      if (studentActuallyAttended) {
+        await tx.updateOne({
+          model: "student",
+          where: { id: session.studentId },
+          data: {
+            sessions_attended: { increment: 1 },
+            points: { increment: 10 },
+            ...(settings?.paidSessionCount &&
+            (session.student.sessions_attended || 0) + 1 >= settings.paidSessionCount
+              ? { paid: studentPaidStatus.Unpaid }
+              : undefined),
+          },
+        });
+      }
+    }
   });
 
+  if (studentActuallyAttended) {
+    await checkAndUpdateStudentRank(session.studentId);
+  }
+
+  const finalStatus = teacherActuallyAttended ? "completed" : "missed";
+
   // Notify if missed
-  if (newStatus === "missed") {
+  if (finalStatus === "missed") {
     await Promise.all([
       createTeacherAndStudentNotification({
         title: t ? t("NOTIFICATION_SESSION_MISSED_TITLE") : "Session Missed",

@@ -5,7 +5,12 @@ import { asyncHandler, errorResponse, successResponse } from "../../Utils/Respon
 import { decryptText, looksEncrypted } from "../../Utils/Security/index.js";
 
 export const getallSubscriptions = asyncHandler(async (req, res, next) => {
-  const subscriptions = await db.findMany({
+  const {search}=req.query;
+  const where={};
+  if(search){
+    where.OR=[{user:{name:{contains:search}}},{user:{email:{contains:search}}}]
+  }
+  const subscriptions = await db.findManyWithPaginationAndCount({
     model: "Subscription",
     include: {
       user: {
@@ -16,7 +21,7 @@ export const getallSubscriptions = asyncHandler(async (req, res, next) => {
       plan: true,
       currency: true,
     },
-  });
+    });
 
   const subscriptionsData = await Promise.all(
     subscriptions.map(async (subscription) => {
@@ -136,6 +141,7 @@ export const renewSubscription = asyncHandler(async (req, res, next) => {
         data: {
           status: "active",
           sessions: plan.sessionsCount,
+          sessions_attended: 0,
           sessions_remaining: plan.sessionsCount,
         },
       });
@@ -159,7 +165,10 @@ export const renewSubscription = asyncHandler(async (req, res, next) => {
           type: "subscription",
           amount: parseFloat(plan.price),
           status: "completed",
-          reason: `Subscription renewed for student ${student.user.name} for plan ${plan.name_en}`,
+          reason: {
+            en: `Subscription renewed for student ${student.user.name} for plan ${plan.name_en}`,
+            ar: `تم تجديد الاشتراك للطالب ${student.user.name} للاشتراك ${plan.name_ar}`,
+          },
           createdAt: new Date(),
           subscriptionId: newSubscription.id,
         },

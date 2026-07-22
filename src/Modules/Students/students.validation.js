@@ -19,9 +19,8 @@ export const createStudentSchema = {
           "string.base": "PLAN_ID_MUST_BE_STRING",
           "string.empty": "PLAN_ID_CANNOT_BE_EMPTY",
           "string.pattern.base": "PLAN_ID_MUST_BE_VALID_ID",
-          "any.required": "PLAN_ID_REQUIRED",
         })
-        .required(),
+        .optional(),
       birth_date: generalFeilds.birth_date.required(),
       gender: generalFeilds.gender.required(),
       active: generalFeilds.active.required(),
@@ -75,5 +74,14 @@ export const updateStudentSchema = {
 export const studentIdSchema = {
   params: Joi.object().keys({
     id: generalFeilds.id.required(),
+  }),
+};
+
+export const updateStudentPlanSchema = {
+  params: Joi.object().keys({
+    id: generalFeilds.id.required(),
+  }),
+  body: Joi.object().keys({
+    planId: generalFeilds.id.required(),
   }),
 };

@@ -9,6 +9,7 @@ export const getAdminNotifications = {
     search: generalFeilds.search.optional(),
     type: joi.string().max(32).optional(),
     category: joi.string().valid("students", "teachers", "sessions").optional(),
+    notificationId: generalFeilds.id.optional(),
   }).optional(),
 };
 

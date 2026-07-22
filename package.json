@@ -20,6 +20,8 @@
     "seed:expenses": "node prisma/seeders/expenses.seeder.js",
     "seed:system-wallet": "node prisma/seeders/systemWallet.seeder.js",
     "seed:notifications": "node prisma/seeders/notifications.seeder.js",
+    "seed:violations": "node prisma/seeders/violations.seeder.js",
+    "seed:ranks": "node prisma/seeders/ranks.seeder.js",
     "seed:all": "npx prisma db seed"
   },
   "keywords": [],

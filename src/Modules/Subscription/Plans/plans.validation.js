@@ -14,6 +14,7 @@ export const createPlanSchema = {
     bestSeller: generalFeilds.bestSeller.required(),
     features: generalFeilds.features.optional(),
     currencyId: generalFeilds.id.required(),
+    color: generalFeilds.color.optional(),
   }),
 };
 
@@ -30,6 +31,7 @@ export const updatePlanSchema = {
     bestSeller: generalFeilds.bestSeller,
     features: generalFeilds.features,
     currencyId: generalFeilds.id,
+    color: generalFeilds.color.optional(),
   }),
   params: Joi.object({
     id: generalFeilds.id.required(),

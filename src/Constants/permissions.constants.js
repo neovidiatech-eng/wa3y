@@ -194,4 +194,11 @@ export const PERMISSIONS_V2 = {
     UPDATE: "subjects:update",
     DELETE: "subjects:delete",
   },
+
+  // Violations & Penalties Management
+  VIOLATIONS: {
+    READ: "violations:read",
+    CREATE: "violations:create",
+    MANAGE: "violations:manage",
+  },
 };

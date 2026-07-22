@@ -8,13 +8,25 @@ import * as db from "../../database/dbService.js";
 export const getSettingsData = async () => {
   try {
     const setting = await db.findFirst({ model: "Setting" });
-    if (setting && setting.discounts) {
-      const data = typeof setting.discounts === "string"
-        ? JSON.parse(setting.discounts)
-        : setting.discounts;
-      return data;
+    if (setting) {
+      const discounts =
+        typeof setting.discounts === "string"
+          ? JSON.parse(setting.discounts)
+          : setting.discounts || {};
+
+      return {
+        ...setting,
+        ...discounts,
+        lateDiscountRules: discounts.lateDiscountRules || [
+          { lateMinutes: 10, discountPercentage: 5 },
+        ],
+        paidSessionCount: setting.paidSessionCount ?? 3,
+        studentCanJoin: setting.studentCanJoin ?? false,
+      };
     }
     return {
+      paidSessionCount: 3,
+      studentCanJoin: false,
       lateDiscountRules: [
         { lateMinutes: 10, discountPercentage: 5 },
       ],
@@ -22,6 +34,8 @@ export const getSettingsData = async () => {
   } catch (error) {
     console.error("Error reading settings from DB:", error);
     return {
+      paidSessionCount: 3,
+      studentCanJoin: false,
       lateDiscountRules: [
         { lateMinutes: 10, discountPercentage: 5 },
       ],

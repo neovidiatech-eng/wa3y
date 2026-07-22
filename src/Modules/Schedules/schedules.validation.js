@@ -82,7 +82,7 @@ export const createRecurringSchedule = {
       notes: generalFeilds.description.optional(),
       startTime: Joi.string()
         .regex(/^([01]\d|2[0-3]):?([0-5]\d)$/)
-        .required()
+        .optional()
         .messages({
           "string.pattern.base": "START_TIME_FORMAT",
         }),
@@ -99,13 +99,37 @@ export const createRecurringSchedule = {
           ),
         )
         .min(1)
-        .required(),
-      startDate: Joi.date().iso().greater("now").required(),
-      endDate: Joi.date().iso().min(Joi.ref("startDate")).greater("now"),
-      count: Joi.number().integer().min(1),
+        .optional(),
+      startDate: Joi.date().iso().greater("now").optional(),
+      endDate: Joi.date().iso().min(Joi.ref("startDate")).greater("now").optional(),
+      count: Joi.number().integer().min(1).optional(),
       notification_Time: Joi.string()
         .valid(...Object.values(notificationType))
         .required(),
+      sessions: Joi.array()
+        .items(
+          Joi.object({
+            date: Joi.string().optional(),
+            startTime: Joi.string()
+              .regex(/^([01]\d|2[0-3]):?([0-5]\d)$/)
+              .optional(),
+            start_time: Joi.date().iso().optional(),
+          })
+        )
+        .min(1)
+        .optional(),
+      customSessions: Joi.array()
+        .items(
+          Joi.object({
+            date: Joi.string().optional(),
+            index: Joi.number().integer().min(0).optional(),
+            newDate: Joi.string().optional(),
+            startTime: Joi.string()
+              .regex(/^([01]\d|2[0-3]):?([0-5]\d)$/)
+              .optional(),
+          })
+        )
+        .optional(),
     })
     .required(),
 };

@@ -167,8 +167,10 @@ const translateToArabic = (text) => {
 
 // GET /admin/notifications
 export const getAdminNotifications = asyncHandler(async (req, res, next) => {
-  const { page = 1, limit = 10, isRead, search, type, category } = req.query;
+  const { page = 1, limit = 10, isRead, search, type, category,notificationId } = req.query;
   const adminId = req.user.id;
+  console.log(notificationId);
+  
 
   let where = {
     AND: [
@@ -180,6 +182,9 @@ export const getAdminNotifications = asyncHandler(async (req, res, next) => {
       },
     ],
   };
+  if(notificationId){
+    where.AND.push({ id: notificationId });
+  }
 
   if (isRead !== undefined) {
     const isReadBool = isRead === "true" || isRead === true;
