@@ -167,13 +167,19 @@ export const createSchedule = asyncHandler(async (req, res, next) => {
   }
 
   /* check if student and teacher are available at the same time */
+  const effectiveStudentIds = Array.from(new Set([studentId, ...studentIds].filter(Boolean)));
+
   const [studentSchedule, teacherSchedule] = await Promise.all([
     db.findFirst({
       model: "schedule",
       where: {
-        studentId,
+        status: { not: "cancelled" },
         start_time: { lt: endTime },
         end_time: { gt: startTime },
+        OR: [
+          { studentId: { in: effectiveStudentIds } },
+          { groupStudents: { some: { studentId: { in: effectiveStudentIds } } } },
+        ],
       },
     }),
 
@@ -222,7 +228,6 @@ export const createSchedule = asyncHandler(async (req, res, next) => {
 
   // Atomically create the schedule and deduct the session
   let newSchedule;
-  const effectiveStudentIds = Array.from(new Set([studentId, ...studentIds].filter(Boolean)));
 
   await db.transaction(async (tx) => {
     newSchedule = await tx.create({
@@ -460,10 +465,13 @@ export const createRecurringSchedule = asyncHandler(async (req, res, next) => {
     db.findMany({
       model: "schedule",
       where: {
-        studentId,
         status: { not: "cancelled" },
         start_time: { lt: windowEnd },
         end_time: { gt: windowStart },
+        OR: [
+          { studentId },
+          { groupStudents: { some: { studentId } } },
+        ],
       },
       select: { id: true, start_time: true, end_time: true, title: true },
     }),
@@ -531,12 +539,26 @@ export const createRecurringSchedule = asyncHandler(async (req, res, next) => {
   }
 
   if (schedulesToCreate.length === 0 && skipedSchedules.length > 0) {
+    const allPast = skipedSchedules.every(
+      (s) => s.conflict === "SESSION_IN_PAST",
+    );
+    if (allPast) {
+      return errorResponse({
+        req,
+        next,
+        status: 400,
+        message: "CANNOT_CREATE_SESSION_IN_PAST",
+        data: { skipedSchedules },
+      });
+    }
+
     return errorResponse({
       req,
       next,
-      status: 400,
-      message: "CANNOT_CREATE_SESSION_IN_PAST",
-      data: { skipedSchedules },
+      status: 409,
+      message: "RECURRING_CREATE_WITH_CONFLICTS",
+      messageParams: { length: skipedSchedules.length },
+      data: { conflicts: skipedSchedules },
     });
   }
 
@@ -994,19 +1016,26 @@ export const updateSchedule = asyncHandler(async (req, res, next) => {
       where: {
         teacherId: schedule.teacherId,
         id: { not: id },
+        status: { not: "cancelled" },
         start_time: { lt: endTime },
         end_time: { gt: startTime },
       },
     });
-    const student_conflict = await db.findFirst({
-      model: "schedule",
-      where: {
-        studentId: schedule.studentId,
-        id: { not: id },
-        start_time: { lt: endTime },
-        end_time: { gt: startTime },
-      },
-    });
+    const student_conflict = schedule.studentId
+      ? await db.findFirst({
+          model: "schedule",
+          where: {
+            id: { not: id },
+            status: { not: "cancelled" },
+            start_time: { lt: endTime },
+            end_time: { gt: startTime },
+            OR: [
+              { studentId: schedule.studentId },
+              { groupStudents: { some: { studentId: schedule.studentId } } },
+            ],
+          },
+        })
+      : null;
 
     if (teacher_conflict || student_conflict) {
       return errorResponse({

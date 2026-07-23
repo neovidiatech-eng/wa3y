@@ -213,15 +213,20 @@ export const approveRequest = asyncHandler(async (req, res, next) => {
           end_time: { gt: startTime },
         },
       });
-      const student_conflict = await tx.findFirst({
-        model: "schedule",
-        where: {
-          studentId: oldSession.studentId,
-          status: { not: "cancelled" },
-          start_time: { lt: endTime },
-          end_time: { gt: startTime },
-        },
-      });
+      const student_conflict = oldSession.studentId
+        ? await tx.findFirst({
+            model: "schedule",
+            where: {
+              status: { not: "cancelled" },
+              start_time: { lt: endTime },
+              end_time: { gt: startTime },
+              OR: [
+                { studentId: oldSession.studentId },
+                { groupStudents: { some: { studentId: oldSession.studentId } } },
+              ],
+            },
+          })
+        : null;
 
       if (teacher_conflict || student_conflict) {
         throw new Error("SESSION_CONFLICT");
@@ -313,15 +318,20 @@ export const approveRequest = asyncHandler(async (req, res, next) => {
           end_time: { gt: startTime },
         },
       });
-      const student_conflict = await tx.findFirst({
-        model: "schedule",
-        where: {
-          studentId,
-          status: { not: "cancelled" },
-          start_time: { lt: endTime },
-          end_time: { gt: startTime },
-        },
-      });
+      const student_conflict = studentId
+        ? await tx.findFirst({
+            model: "schedule",
+            where: {
+              status: { not: "cancelled" },
+              start_time: { lt: endTime },
+              end_time: { gt: startTime },
+              OR: [
+                { studentId },
+                { groupStudents: { some: { studentId } } },
+              ],
+            },
+          })
+        : null;
 
       if (teacher_conflict || student_conflict) {
         throw new Error("SESSION_CONFLICT");

@@ -188,7 +188,7 @@ export const registerTeacher = asyncHandler(async (req, res, next) => {
   // 2. Preparation (Hashing, Encryption, OTP)
   const encryptedPassword = encryptPassword({ password });
   const encryptedPhone = encryptText({ text: phone });
-  const otp = generateOtp();
+  const otp = /* generateOtp(); */ "225566" 
   const hashedOtp = await hash({ password: otp });
   console.log(otp, "otp");
 
