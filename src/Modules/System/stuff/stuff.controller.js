@@ -11,6 +11,7 @@ import {
   encryptText,
 } from "../../../Utils/Security/index.js";
 import { redis } from "../../../Utils/Radis/Connection.js";
+import { rbacCache } from "../../../Utils/RBAC/cache.js";
 
 export const getAllStuff = asyncHandler(async (req, res, next) => {
   const { search, page = 1, limit = 10 } = req.query;
@@ -196,6 +197,8 @@ export const updateStuffUser = asyncHandler(async (req, res, next) => {
   });
 
   await decryptUserSensitiveFields(updatedStuff.user);
+
+  await rbacCache.invalidateUserCache(stuff.user_id);
 
   return successResponse({
     res,

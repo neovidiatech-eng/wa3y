@@ -1,4 +1,5 @@
 import { redis } from "../Radis/Connection.js";
+import * as db from "../../database/dbService.js";
 
 const CACHE_TTL = 3600; // Cache permissions for 1 hour
 
@@ -29,11 +30,32 @@ export const rbacCache = {
     }
   },
 
+  async invalidateUserCache(userId) {
+    try {
+      if (userId) {
+        await redis.del(`user:${userId}`);
+      }
+    } catch (err) {
+      console.error("Redis invalidate user error:", err);
+    }
+  },
+
   async invalidateRoleCache(roleId) {
     try {
       await redis.del(this.getRolePermissionsKey(roleId));
+      if (roleId) {
+        const users = await db.findMany({
+          model: "user",
+          where: { roleId },
+          select: { id: true },
+        });
+        for (const u of users) {
+          await redis.del(`user:${u.id}`);
+        }
+      }
     } catch (err) {
-      console.error("Redis invalidate error:", err);
+      console.error("Redis invalidate role error:", err);
     }
-  }
+  },
 };
+

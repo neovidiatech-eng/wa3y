@@ -142,6 +142,10 @@ export const assignRoleToUser = asyncHandler(async (req, res, next) => {
       role: true,
     },
   });
+
+  // Invalidate permissions cache for the user
+  await rbacCache.invalidateUserCache(user_id);
+
   return successResponse({
     res,
     req,
