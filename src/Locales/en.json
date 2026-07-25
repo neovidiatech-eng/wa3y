@@ -403,6 +403,7 @@
   "STUDENT_ALREADY_HAVE_PLAN": "Student already has this plan",
   "STUDENT_ALREADY_HAVE_SESSIONS":"Student already Started the plan ",
   "NOTIFICATION_TEACHER_WARNING_TITLE": "Administrative Warning",
+  "TEACHER_NOT_APPROVED":"Teacher registration not approved yet, please wait for the admin to approve your registration",
   "NOTIFICATION_TEACHER_PENALTY_TITLE": "Violation & Deduction Penalty",
   "VIOLATION_ISSUED_SUCCESS": "Violation/Warning issued successfully",
   "INFRACTION_ITEM_NOT_FOUND": "Infraction item not found",

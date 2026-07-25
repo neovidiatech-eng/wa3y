@@ -26,6 +26,7 @@ model user {
   fcmToken             String?                 @default("")
   age                  Int?                    @default(0)
   city                 String?                 @default("unknown")
+  additionalData       Json?                  @map("additional_data")
   conversationsStudent Conversation[]          @relation("StudentConversations")
   conversations        Conversation[]          @relation("TeacherConversations")
   messages             Message[]

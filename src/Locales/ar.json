@@ -104,6 +104,7 @@
   "UNAUTHORIZED_DELETE": "ليس لديك صلاحية لحذف هذا المورد",
   "EXPENSE_NOT_FOUND": "المصروف غير موجود",
   "PERMISSION_EXISTS": "الصلاحية موجودة بالفعل",
+  "TEACHER_NOT_APPROVED": "لم يتم قبول تسجيل المعلم بعد برجاء الانتظار حتى يقوم المدير بالموافقة على تسجيلك",
   "PERMISSION_NOT_FOUND": "الصلاحية غير موجودة",
   "MAPPING_EXISTS": "ربط الصلاحية موجود بالفعل",
   "MAPPING_NOT_FOUND": "ربط الصلاحية غير موجود",

@@ -46,6 +46,7 @@ export const createPlan = asyncHandler(async (req, res, next) => {
     maxStudents,
     planType,
   } = req.body;
+  const unlimitStudents = maxStudents===0?1000000000:maxStudents;
   const existPlan = await db.findFirst({
     model: "Plans",
     where: {
@@ -91,7 +92,7 @@ export const createPlan = asyncHandler(async (req, res, next) => {
       currencyId,
       ...(color && { color }),
       isGroup: isGroup ?? false,
-      maxStudents: maxStudents ? parseInt(maxStudents) : 1,
+      maxStudents: unlimitStudents,
       planType: planType || (isGroup ? "group" : "individual"),
     },
   });

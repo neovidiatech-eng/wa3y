@@ -177,6 +177,7 @@ export const registerTeacher = asyncHandler(async (req, res, next) => {
     timezone,
     age,
     city,
+    additionalData,
   } = req.body;
 
   // 1. Check email uniqueness
@@ -220,6 +221,7 @@ export const registerTeacher = asyncHandler(async (req, res, next) => {
         timezone,
         age: age ? Number(age) : undefined,
         city: city || undefined,
+        additionalData: additionalData || undefined,
         status: "pending",
         // No roleId / confirmAt — confirmed after OTP, fully activated after admin approval
       },
@@ -257,6 +259,7 @@ export const login = asyncHandler(async (req, res, next) => {
       email,
     },
     include: {
+      teacher:true,
       role: {
         include: {
           rolePermissions: {
@@ -269,6 +272,14 @@ export const login = asyncHandler(async (req, res, next) => {
       subscriptionRequests: true,
     },
   });
+    if (!user.confirmAt) {
+    return errorResponse({
+      req,
+      next,
+      message: "USER_NOT_CONFIRMED",
+      status: 401,
+    });
+  }
 
   const subscriptionRequest = user?.subscriptionRequests?.find(
     (request) => request.status === "pending",
@@ -281,6 +292,19 @@ export const login = asyncHandler(async (req, res, next) => {
       status: 400,
     });
   }
+
+const isPendingTeacher =  user?.teacher?.approved === false
+
+if(isPendingTeacher){
+    return errorResponse({
+      req,
+      next,
+      message: "TEACHER_NOT_APPROVED",
+      status: 403,
+    });
+}
+
+
 
   if (!user || !user.password) {
     return errorResponse({
@@ -302,14 +326,7 @@ export const login = asyncHandler(async (req, res, next) => {
       status: 401,
     });
   }
-  if (!user.confirmAt) {
-    return errorResponse({
-      req,
-      next,
-      message: "USER_NOT_CONFIRMED",
-      status: 401,
-    });
-  }
+
 
   const decryptedPhone = looksEncrypted(user.phone)
     ? await decryptText({ text: user.phone })
