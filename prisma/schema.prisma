@@ -121,7 +121,7 @@ model Plans {
   currencyId           String?
   color                String?                  @default("#369589")
   isGroup              Boolean                 @default(false)
-  maxStudents          Int                     @default(1)
+  maxStudents          String                  @default("1")
   planType             String                  @default("individual")
   createdAt            DateTime                @default(now())
   updatedAt            DateTime                @updatedAt
@@ -285,7 +285,7 @@ model schedule {
   day_of_week         String?
   is_recurring        Boolean           @default(false)
   isGroup             Boolean           @default(false)
-  maxStudents         Int               @default(1)
+  maxStudents         String              @default("1")
   parent_recurring_id String?
   subjectId           String            @default("null")
   rescheduledFromId   String?           @unique

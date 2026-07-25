@@ -46,7 +46,7 @@ export const createPlan = asyncHandler(async (req, res, next) => {
     maxStudents,
     planType,
   } = req.body;
-  const unlimitStudents = maxStudents===0?1000000000:maxStudents;
+  const unlimitStudents = (maxStudents === "0" || maxStudents === 0 || maxStudents === "unlimited") ? "unlimited" : String(maxStudents ?? "1");
   const existPlan = await db.findFirst({
     model: "Plans",
     where: {
@@ -180,7 +180,7 @@ export const updatePlan = asyncHandler(async (req, res, next) => {
   }
   if (color !== undefined) data.color = color;
   if (isGroup !== undefined) data.isGroup = isGroup;
-  if (maxStudents !== undefined) data.maxStudents = parseInt(maxStudents);
+  if (maxStudents !== undefined) data.maxStudents = (maxStudents === "0" || maxStudents === 0 || maxStudents === "unlimited") ? "unlimited" : String(maxStudents);
   if (planType !== undefined) data.planType = planType;
 
   const updatedPlan = await db.updateOne({

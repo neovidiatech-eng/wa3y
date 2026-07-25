@@ -62,7 +62,7 @@ export const createSchedule = {
           "string.pattern.base": "NOTIFICATION_TIME_INVALID",
         }),
       isGroup: Joi.boolean().optional().default(false),
-      maxStudents: Joi.number().integer().min(1).optional().default(1),
+      maxStudents: Joi.alternatives().try(Joi.string(), Joi.number()).optional().default("1"),
     })
     .required(),
 };
@@ -79,7 +79,7 @@ export const createRecurringSchedule = {
       link: generalFeilds.url.required(),
       notes: generalFeilds.description.optional(),
       isGroup: Joi.boolean().optional().default(false),
-      maxStudents: Joi.number().integer().min(1).optional().default(1),
+      maxStudents: Joi.alternatives().try(Joi.string(), Joi.number()).optional().default("1"),
       startTime: Joi.string()
         .regex(/^([01]\d|2[0-3]):?([0-5]\d)$/)
         .optional()
