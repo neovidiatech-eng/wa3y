@@ -189,7 +189,7 @@ export const registerTeacher = asyncHandler(async (req, res, next) => {
   // 2. Preparation (Hashing, Encryption, OTP)
   const encryptedPassword = encryptPassword({ password });
   const encryptedPhone = encryptText({ text: phone });
-  const otp = /* generateOtp(); */ "225566" 
+  const otp = /* generateOtp(); */ "225566";
   const hashedOtp = await hash({ password: otp });
   console.log(otp, "otp");
 
@@ -232,7 +232,7 @@ export const registerTeacher = asyncHandler(async (req, res, next) => {
       `${email}_Teacher_data`,
       JSON.stringify({ user_id: user.id, gender }),
     );
-    await redis.expire(`${email}_Teacher_data`, 60 * 60 * 24*2);
+    await redis.expire(`${email}_Teacher_data`, 60 * 60 * 24 * 2);
   });
 
   return successResponse({
@@ -259,7 +259,7 @@ export const login = asyncHandler(async (req, res, next) => {
       email,
     },
     include: {
-      teacher:true,
+      teacher: true,
       role: {
         include: {
           rolePermissions: {
@@ -272,7 +272,7 @@ export const login = asyncHandler(async (req, res, next) => {
       subscriptionRequests: true,
     },
   });
-    if (!user.confirmAt) {
+  if (!user.confirmAt) {
     return errorResponse({
       req,
       next,
@@ -293,18 +293,16 @@ export const login = asyncHandler(async (req, res, next) => {
     });
   }
 
-const isPendingTeacher =  user?.teacher?.approved === false
+  const isPendingTeacher = user?.teacher?.approved === false;
 
-if(isPendingTeacher){
+  if (isPendingTeacher) {
     return errorResponse({
       req,
       next,
       message: "TEACHER_NOT_APPROVED",
       status: 403,
     });
-}
-
-
+  }
 
   if (!user || !user.password) {
     return errorResponse({
@@ -326,7 +324,6 @@ if(isPendingTeacher){
       status: 401,
     });
   }
-
 
   const decryptedPhone = looksEncrypted(user.phone)
     ? await decryptText({ text: user.phone })
@@ -930,8 +927,6 @@ export const approveTeacherRequest = asyncHandler(async (req, res, next) => {
     include: { teacher: { where: { approved: false } } },
   });
 
-  
-
   if (!user) {
     return errorResponse({
       req,
@@ -986,7 +981,7 @@ export const approveTeacherRequest = asyncHandler(async (req, res, next) => {
     await tx.updateOne({
       model: "user",
       where: { id: user.id },
-      data: { roleId: teacherRole.id, status: "active",approved:true },
+      data: { role: { connect: { id: teacherRole.id } }, status: "active" },
     });
 
     // Activate teacher + link currency/subjects/meeting_link
@@ -995,6 +990,7 @@ export const approveTeacherRequest = asyncHandler(async (req, res, next) => {
       where: { user_id: user.id },
       data: {
         active: true,
+        approved: true,
         currency: { connect: { id: currency.id } },
         ...(meeting_link && { meeting_link }),
         ...(hour_price !== undefined && { hour_price: Number(hour_price) }),
