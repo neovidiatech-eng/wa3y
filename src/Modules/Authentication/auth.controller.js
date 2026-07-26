@@ -232,7 +232,7 @@ export const registerTeacher = asyncHandler(async (req, res, next) => {
       `${email}_Teacher_data`,
       JSON.stringify({ user_id: user.id, gender }),
     );
-    await redis.expire(`${email}_Teacher_data`, 60 * 60 * 24);
+    await redis.expire(`${email}_Teacher_data`, 60 * 60 * 24*2);
   });
 
   return successResponse({
@@ -986,7 +986,7 @@ export const approveTeacherRequest = asyncHandler(async (req, res, next) => {
     await tx.updateOne({
       model: "user",
       where: { id: user.id },
-      data: { roleId: teacherRole.id, status: "active" },
+      data: { roleId: teacherRole.id, status: "active",approved:true },
     });
 
     // Activate teacher + link currency/subjects/meeting_link
