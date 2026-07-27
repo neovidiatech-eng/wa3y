@@ -121,7 +121,7 @@ export const registerTeacherSchema = {
       age: generalFeilds.age.optional(),
       additionalData: Joi.object().keys({
         marital_status: Joi.string().trim().required(),
-
+        notes: Joi.string().allow("").trim().optional(),
         education: Joi.string().trim().required(),
 
         finished_study: Joi.boolean().required(),
