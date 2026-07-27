@@ -7,6 +7,7 @@ import * as db from "../../../database/dbService.js";
 import { redis } from "../../../Utils/Radis/Connection.js";
 import { decryptUserSensitiveFields } from "../../../Utils/Security/index.js";
 import { ensureExists } from "../../../database/genericService.js";
+import { rbacCache } from "../../../Utils/RBAC/cache.js";
 
 export const getSubscriptionRequests = asyncHandler(async (req, res, next) => {
   const { search, status, page = 1, limit = 10 } = req.query;
@@ -127,6 +128,8 @@ export const changeStatus = asyncHandler(async (req, res, next) => {
         where: { id },
         data: { status },
       });
+
+      await rbacCache.invalidateUserCache(subscriptionRequest.user_id);
 
       // ❌ لو rejected خلاص
       if (status !== "approved") return;

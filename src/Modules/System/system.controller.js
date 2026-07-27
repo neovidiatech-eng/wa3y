@@ -474,15 +474,15 @@ export const deletePermission = asyncHandler(async (req, res, next) => {
     });
   }
 
-  await db.deleteOne({
-    model: "permission",
-    where: { id },
-  });
-
-  // Find roles that had this permission and invalidate their caches
+  // Find roles that had this permission before deleting
   const rolePermissions = await db.findMany({
     model: "rolePermission",
     where: { permissionId: id },
+  });
+
+  await db.deleteOne({
+    model: "permission",
+    where: { id },
   });
 
   for (const rp of rolePermissions) {
@@ -499,7 +499,7 @@ export const deletePermission = asyncHandler(async (req, res, next) => {
 
 export const assignPermissionsToRole = asyncHandler(async (req, res, next) => {
   const { roleId, permissionIds } = req.body;
-  if (!roleId || !permissionIds) {
+  if (!roleId || !permissionIds || !Array.isArray(permissionIds)) {
     return errorResponse({
       req,
       next,
@@ -508,29 +508,36 @@ export const assignPermissionsToRole = asyncHandler(async (req, res, next) => {
     });
   }
 
-  const exists = await db.findFirst({
-    model: "rolePermission",
-    where: { roleId, permissionId: { in: permissionIds } },
+  const role = await db.findOne({
+    model: "role",
+    where: { id: roleId },
   });
 
-  if (exists) {
+  if (!role) {
     return errorResponse({
       req,
       next,
-      message: "MAPPING_EXISTS",
-      status: 400,
+      message: "ROLE_NOT_FOUND",
+      status: 404,
     });
   }
 
-  // Create role-permission mappings
-  const mappings = permissionIds.map((permissionId) => ({
-    roleId,
-    permissionId, 
-  }));
+ const newMappings = await db.transaction(async (tx) => {
+    await tx.deleteMany({
+      model: "rolePermission",
+      where: { roleId },
+    });
 
-  const newMappings = await db.createMany({
-    model: "rolePermission",
-    data: mappings,
+    if (permissionIds.length > 0) {
+      const mappings = permissionIds.map((permissionId) => ({
+        roleId,
+        permissionId,
+      }));
+      await tx.createMany({
+        model: "rolePermission",
+        data: mappings,
+      });
+    }
   });
 
   // Invalidate cache for this role

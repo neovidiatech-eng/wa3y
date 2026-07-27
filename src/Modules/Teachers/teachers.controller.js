@@ -13,7 +13,6 @@ import { createAdminNotification } from "../Notifications/notifications.controll
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc.js";
 import timezone from "dayjs/plugin/timezone.js";
-import prisma from "../../database/Connection.db.js";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);

@@ -42,15 +42,44 @@ export const rbacCache = {
 
   async invalidateRoleCache(roleId) {
     try {
+      if (!roleId) return;
       await redis.del(this.getRolePermissionsKey(roleId));
-      if (roleId) {
-        const users = await db.findMany({
-          model: "user",
-          where: { roleId },
-          select: { id: true },
-        });
-        for (const u of users) {
-          await redis.del(`user:${u.id}`);
+
+      const userIds = new Set();
+
+      // Find users with user.roleId or matching stuff/teacher relations
+      const users = await db.findMany({
+        model: "user",
+        where: {
+          OR: [
+            { roleId },
+            { stuff: { roleId } },
+            { teacher: { roleId } },
+          ],
+        },
+        select: { id: true },
+      });
+      users.forEach((u) => userIds.add(u.id));
+
+      // Find users directly from stuff table
+      const stuffUsers = await db.findMany({
+        model: "stuff",
+        where: { roleId },
+        select: { user_id: true },
+      });
+      stuffUsers.forEach((s) => userIds.add(s.user_id));
+
+      // Find users directly from teacher table
+      const teacherUsers = await db.findMany({
+        model: "teacher",
+        where: { roleId },
+        select: { user_id: true },
+      });
+      teacherUsers.forEach((t) => userIds.add(t.user_id));
+
+      for (const userId of userIds) {
+        if (userId) {
+          await redis.del(`user:${userId}`);
         }
       }
     } catch (err) {
