@@ -165,7 +165,7 @@ export const register = asyncHandler(async (req, res, next) => {
 /*                          TEACHER SELF-REGISTRATION                          */
 /* -------------------------------------------------------------------------- */
 export const registerTeacher = asyncHandler(async (req, res, next) => {
-  const {
+  let {
     name,
     email,
     password,
@@ -187,7 +187,7 @@ export const registerTeacher = asyncHandler(async (req, res, next) => {
     return errorResponse({ req, next, message: "EMAIL_EXISTS", status: 400 });
   }
   if (notes) {
-    additionalData.notes = notes;
+    additionalData = { ...additionalData, notes };
   }
 
   // 2. Preparation (Hashing, Encryption, OTP)
