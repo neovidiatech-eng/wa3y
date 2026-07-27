@@ -119,9 +119,9 @@ export const registerTeacherSchema = {
       timezone: Joi.string().optional(),
       city: generalFeilds.city.optional(),
       age: generalFeilds.age.optional(),
+      notes: Joi.string().allow("").trim().optional(),
       additionalData: Joi.object().keys({
         marital_status: Joi.string().trim().required(),
-        notes: Joi.string().allow("").trim().optional(),
         education: Joi.string().trim().required(),
 
         finished_study: Joi.boolean().required(),

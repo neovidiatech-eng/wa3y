@@ -177,6 +177,7 @@ export const registerTeacher = asyncHandler(async (req, res, next) => {
     timezone,
     age,
     city,
+    notes,
     additionalData,
   } = req.body;
 
@@ -184,6 +185,9 @@ export const registerTeacher = asyncHandler(async (req, res, next) => {
   const existingUser = await db.findFirst({ model: "user", where: { email } });
   if (existingUser) {
     return errorResponse({ req, next, message: "EMAIL_EXISTS", status: 400 });
+  }
+  if (notes) {
+    additionalData.notes = notes;
   }
 
   // 2. Preparation (Hashing, Encryption, OTP)
