@@ -129,18 +129,35 @@ export const createSchedule = asyncHandler(async (req, res, next) => {
     maxStudents = "1",
   } = req.body;
 
-  /* check if student and teacher exist */
-  const [student, teacher, subject] = await Promise.all([
-    db.findOne({
+  const effectiveStudentIds = Array.from(
+    new Set([studentId, ...studentIds].filter(Boolean))
+  );
+
+  if (effectiveStudentIds.length === 0) {
+    return errorResponse({
+      req,
+      next,
+      status: 404,
+      message: "STUDENT_NOT_FOUND",
+    });
+  }
+
+  /* check if students and teacher exist */
+  const [students, teacher, subject] = await Promise.all([
+    db.findMany({
       model: "student",
-      where: { id: studentId },
-      include: { plan: true },
+      where: { id: { in: effectiveStudentIds } },
+      include: { plan: true, user: true },
     }),
     checkExist({ model: "teacher", where: { id: teacherId }, next }),
     checkExist({ model: "subjects", where: { id: subject_id }, next }),
   ]);
 
-  if (!student) {
+  const student =
+    students.find((s) => s.id === (studentId || effectiveStudentIds[0])) ||
+    students[0];
+
+  if (!students.length || !student) {
     return errorResponse({
       req,
       next,
@@ -166,9 +183,11 @@ export const createSchedule = asyncHandler(async (req, res, next) => {
     });
   }
 
-  /* check if student and teacher are available at the same time */
-  const effectiveStudentIds = Array.from(new Set([studentId, ...studentIds].filter(Boolean)));
-  const normalizedMaxStudents = (maxStudents === "0" || maxStudents === 0 || maxStudents === "unlimited") ? "unlimited" : String(maxStudents);
+  /* check max students */
+  const normalizedMaxStudents =
+    maxStudents === "0" || maxStudents === 0 || maxStudents === "unlimited"
+      ? "unlimited"
+      : String(maxStudents);
 
   if (isGroup && normalizedMaxStudents !== "unlimited") {
     const max = parseInt(normalizedMaxStudents);
@@ -227,15 +246,18 @@ export const createSchedule = asyncHandler(async (req, res, next) => {
     });
   }
 
-  // Session check
+  // Session check across all enrolled students
   const requiredSessions = 1;
-  if (student.sessions_remaining < requiredSessions) {
+  const insufficientStudent = students.find(
+    (s) => (s.sessions_remaining || 0) < requiredSessions
+  );
+  if (insufficientStudent) {
     return errorResponse({
       req,
       next,
       status: 400,
       message: "INSUFFICIENT_SESSIONS",
-      messageParams: { remaining: student.sessions_remaining },
+      messageParams: { remaining: insufficientStudent.sessions_remaining },
     });
   }
 
@@ -246,7 +268,7 @@ export const createSchedule = asyncHandler(async (req, res, next) => {
     newSchedule = await tx.create({
       model: "schedule",
       data: {
-        studentId: isGroup ? null : studentId,
+        studentId: isGroup ? null : studentId || effectiveStudentIds[0],
         teacherId,
         title,
         description,
@@ -284,10 +306,19 @@ export const createSchedule = asyncHandler(async (req, res, next) => {
         create: { studentId: sId, teacherId, hour_price: teacher?.hour_price ?? 0 },
       });
     }
+
+    // Schedule log
+    await tx.create({
+      model: "scheduleLog",
+      data: {
+        scheduleId: newSchedule.id,
+      },
+    });
   });
 
-  let reminderTime;
+  // BullMQ notification job setup
   let notificationJobType;
+  let reminderTime;
   if (notification_Time === notificationType[1]) {
     reminderTime = new Date(startTime.getTime() - 10 * 60 * 1000);
     notificationJobType = "before 10 minutes";
@@ -306,30 +337,44 @@ export const createSchedule = asyncHandler(async (req, res, next) => {
   if (reminderTime > now) {
     addNotificationJob({
       scheduleId: newSchedule.id,
-      studentId,
+      studentId: studentId || effectiveStudentIds[0],
       type: notificationJobType,
       sendAt: reminderTime,
     });
   }
 
-  const [studentInfo, teacherInfo] = await Promise.all([
-    db.findOne({ model: "student", where: { id: studentId }, include: { user: true } }),
-    db.findOne({ model: "teacher", where: { id: teacherId }, include: { user: true } }),
-  ]);
- await Promise.all([
-  createTeacherAndStudentNotification({
-    title: "تم جدولة الجلسة",
-    message: `تم جدولة جلسة جديدة "${title}" للطالب: ${studentInfo?.user?.name || "Student"} مع المدرس: ${teacherInfo?.user?.name || "Teacher"}.`,
-    type: "session_created",
-    teacherId: teacherInfo?.user?.id,
-    studentId: studentInfo?.user?.id,
-  }),
-  createAdminNotification({
-    title: "تم جدولة الجلسة",
-    message: `تم جدولة جلسة جديدة "${title}" للطالب: ${studentInfo?.user?.name || "Student"} مع المدرس: ${teacherInfo?.user?.name || "Teacher"}.`,
-    type: "session_created",
-  }),
- ]);
+  const teacherInfo = await db.findOne({
+    model: "teacher",
+    where: { id: teacherId },
+    include: { user: true },
+  });
+
+  const teacherName = teacherInfo?.user?.name || "Teacher";
+  const studentNames =
+    students.map((s) => s.user?.name || "Student").join(", ") || "Student";
+
+  const notificationPromises = students
+    .filter((s) => s.user?.id)
+    .map((s) =>
+      createTeacherAndStudentNotification({
+        title: "تم جدولة الجلسة",
+        message: `تم جدولة جلسة جديدة "${title}" للطالب: ${s.user?.name || "Student"} مع المدرس: ${teacherName}.`,
+        type: "session_created",
+        teacherId: teacherInfo?.user?.id,
+        studentId: s.user.id,
+      })
+    );
+
+  notificationPromises.push(
+    createAdminNotification({
+      title: "تم جدولة الجلسة",
+      message: `تم جدولة جلسة جديدة "${title}" للطالب: ${studentNames} مع المدرس: ${teacherName}.`,
+      type: "session_created",
+    })
+  );
+
+  await Promise.all(notificationPromises);
+
   return successResponse({
     res,
     req,
@@ -367,8 +412,47 @@ export const createRecurringSchedule = asyncHandler(async (req, res, next) => {
   } = req.body;
   const skipedSchedules = [];
   const perSessionUnits = 1;
-  const effectiveStudentIds = Array.from(new Set([studentId, ...studentIds].filter(Boolean)));
-  const normalizedMaxStudents = (maxStudents === "0" || maxStudents === 0 || maxStudents === "unlimited") ? "unlimited" : String(maxStudents);
+  const effectiveStudentIds = Array.from(
+    new Set([studentId, ...studentIds].filter(Boolean))
+  );
+
+  if (effectiveStudentIds.length === 0) {
+    return errorResponse({
+      req,
+      next,
+      status: 404,
+      message: "STUDENT_NOT_FOUND",
+    });
+  }
+
+  /* check exist student, teacher, subject */
+  const [students, teacher, subject] = await Promise.all([
+    db.findMany({
+      model: "student",
+      where: { id: { in: effectiveStudentIds } },
+      include: { plan: true, user: true },
+    }),
+    checkExist({ model: "teacher", where: { id: teacherId }, next }),
+    checkExist({ model: "subjects", where: { id: subject_id }, next }),
+  ]);
+
+  const student =
+    students.find((s) => s.id === (studentId || effectiveStudentIds[0])) ||
+    students[0];
+
+  if (!students.length || !student) {
+    return errorResponse({
+      req,
+      next,
+      status: 404,
+      message: "STUDENT_NOT_FOUND",
+    });
+  }
+
+  const normalizedMaxStudents =
+    maxStudents === "0" || maxStudents === 0 || maxStudents === "unlimited"
+      ? "unlimited"
+      : String(maxStudents);
 
   if (isGroup && normalizedMaxStudents !== "unlimited") {
     const max = parseInt(normalizedMaxStudents);
@@ -380,26 +464,6 @@ export const createRecurringSchedule = asyncHandler(async (req, res, next) => {
         message: "EXCEEDED_MAX_STUDENTS",
       });
     }
-  }
-
-  /* check exist student, teacher, subject */
-  const [student, teacher, subject] = await Promise.all([
-    db.findOne({
-      model: "student",
-      where: { id: studentId },
-      include: { plan: true },
-    }),
-    checkExist({ model: "teacher", where: { id: teacherId }, next }),
-    checkExist({ model: "subjects", where: { id: subject_id }, next }),
-  ]);
-
-  if (!student) {
-    return errorResponse({
-      req,
-      next,
-      status: 404,
-      message: "STUDENT_NOT_FOUND",
-    });
   }
 
   let sessionItems = [];
@@ -428,19 +492,28 @@ export const createRecurringSchedule = asyncHandler(async (req, res, next) => {
     });
   } else {
     // Fallback: auto generate from startDate, endDate/count, days
-    const effectiveCount = count || (endDate ? null : student.sessions_remaining);
+    const minRemaining = Math.min(
+      ...students.map((s) => s.sessions_remaining || 0)
+    );
+    const effectiveCount = count || (endDate ? null : minRemaining);
     let dates = getDatesBetweenUTC(startDate, endDate, days, effectiveCount);
 
     sessionItems = dates.map((d, i) => {
       const dateStr = dayjs.tz(d, req.timezone).format("YYYY-MM-DD");
       const override = customSessions.find(
-        (c) => (c.date && c.date === dateStr) || (c.index !== undefined && c.index === i)
+        (c) =>
+          (c.date && c.date === dateStr) ||
+          (c.index !== undefined && c.index === i)
       );
 
       const sessionDate = override?.newDate ? new Date(override.newDate) : d;
       const sessionStartTime = override?.startTime || timeStart;
 
-      const start_time = combineDateAndTime(sessionDate, sessionStartTime, req.timezone);
+      const start_time = combineDateAndTime(
+        sessionDate,
+        sessionStartTime,
+        req.timezone
+      );
       const end_time = getEndTime({
         startTime: start_time,
         duration: student.plan?.sessionTime,
@@ -451,11 +524,15 @@ export const createRecurringSchedule = asyncHandler(async (req, res, next) => {
     });
   }
 
-  // Session check for recurring: Cap the sessionItems to the student's remaining sessions
-  if (sessionItems.length > student.sessions_remaining) {
+  // Session check for recurring: Cap sessionItems to minimum remaining sessions across enrolled students
+  const minRemainingSessions = Math.min(
+    ...students.map((s) => s.sessions_remaining || 0)
+  );
+
+  if (sessionItems.length > minRemainingSessions) {
     sessionItems = sessionItems.slice(
       0,
-      Math.floor(student.sessions_remaining / perSessionUnits),
+      Math.floor(minRemainingSessions / perSessionUnits)
     );
   }
 
@@ -466,7 +543,7 @@ export const createRecurringSchedule = asyncHandler(async (req, res, next) => {
       status: 400,
       message: "INSUFFICIENT_SESSIONS_OR_INVALID_RANGE",
       messageParams: {
-        remaining: student.sessions_remaining,
+        remaining: minRemainingSessions,
       },
     });
   }
@@ -477,130 +554,108 @@ export const createRecurringSchedule = asyncHandler(async (req, res, next) => {
   const parentRecurringId = `rec_${nanoid(10)}`;
 
   // Determine the overall window for the batch conflict query
-  const windowStart = new Date(Math.min(...sessionItems.map((s) => s.start_time.getTime())));
-  const windowEnd = new Date(Math.max(...sessionItems.map((s) => s.end_time.getTime())));
+  const windowStart = new Date(
+    Math.min(...sessionItems.map((s) => s.start_time.getTime()))
+  );
+  const windowEnd = new Date(
+    Math.max(...sessionItems.map((s) => s.end_time.getTime()))
+  );
 
-  // Pre-fetch ALL conflicts in 2 queries instead of 2-per-date (N+1 fix)
-  const [allTeacherConflicts, allStudentConflicts] = await Promise.all([
-    db.findMany({
-      model: "schedule",
-      where: {
-        teacherId,
-        status: { not: "cancelled" },
-        start_time: { lt: windowEnd },
-        end_time: { gt: windowStart },
-      },
-      select: { id: true, start_time: true, end_time: true, title: true },
-    }),
-    db.findMany({
-      model: "schedule",
-      where: {
-        status: { not: "cancelled" },
-        start_time: { lt: windowEnd },
-        end_time: { gt: windowStart },
-        OR: [
-          { studentId },
-          { groupStudents: { some: { studentId } } },
-        ],
-      },
-      select: { id: true, start_time: true, end_time: true, title: true },
-    }),
-  ]);
+  // Fetch candidate existing schedules in window for conflict check
+  const candidateSchedules = await db.findMany({
+    model: "schedule",
+    where: {
+      status: { not: "cancelled" },
+      start_time: { lt: windowEnd },
+      end_time: { gt: windowStart },
+      OR: [
+        { teacherId },
+        { studentId: { in: effectiveStudentIds } },
+        { groupStudents: { some: { studentId: { in: effectiveStudentIds } } } },
+      ],
+    },
+    include: {
+      groupStudents: true,
+    },
+  });
 
-  const now = getNowUTC().toDate();
+  const nowsessions = getNowUTC().toDate();
 
-  for (const sessionItem of sessionItems) {
-    const { date, start_time, end_time } = sessionItem;
+  for (let i = 0; i < sessionItems.length; i++) {
+    const { start_time, end_time } = sessionItems[i];
 
-    if (start_time < now) {
+    if (start_time < nowsessions) {
       skipedSchedules.push({
-        date: dayjs.tz(date, req.timezone).format("YYYY-MM-DD"),
-        title,
-        conflict: "SESSION_IN_PAST",
+        date: sessionItems[i].date,
+        reason: "CANNOT_CREATE_SESSION_IN_PAST",
       });
       continue;
     }
 
-    // In-memory overlap check (avoids DB query per iteration)
-    const teacher_conflict = allTeacherConflicts.find(
-      (s) => s.start_time < end_time && s.end_time > start_time,
-    );
-    const student_conflict = allStudentConflicts.find(
-      (s) => s.start_time < end_time && s.end_time > start_time,
+    const hasConflict = candidateSchedules.some(
+      (existing) =>
+        existing.start_time < end_time && existing.end_time > start_time
     );
 
-    if (student_conflict) {
+    if (hasConflict) {
       skipedSchedules.push({
-        date: date.toISOString().split("T")[0],
-        title: student_conflict.title,
-        conflict: "STUDENT_NOT_AVAILABLE",
+        date: sessionItems[i].date,
+        reason: "SESSION_CONFLICT",
       });
       continue;
     }
-    if (teacher_conflict) {
-      skipedSchedules.push({
-        date: date.toISOString().split("T")[0],
-        title: teacher_conflict.title,
-        conflict: "TEACHER_NOT_AVAILABLE",
-      });
-      continue;
-    }
+
+    const customNotifTime = customSessions.find(
+      (c) => c.index === i || (c.date && c.date === sessionItems[i].date)
+    )?.notification_Time;
 
     schedulesToCreate.push({
-      studentId: isGroup ? null : studentId,
+      scheduleData: {
+        studentId: isGroup ? null : studentId || effectiveStudentIds[0],
+        teacherId,
+        title,
+        description,
+        link: teacher?.meeting_link ? teacher.meeting_link : link,
+        notes,
+        subjectId: subject_id,
+        start_time,
+        end_time,
+        parent_recurring_id: parentRecurringId,
+        isGroup,
+        maxStudents: isGroup ? normalizedMaxStudents : "1",
+      },
+      notification_Time: customNotifTime || notification_Time,
+      index: i,
+    });
+
+    candidateSchedules.push({
       teacherId,
-      title,
-      description,
-      link: teacher?.meeting_link ? teacher.meeting_link : link,
-      notes,
+      studentId: isGroup ? null : studentId || effectiveStudentIds[0],
       start_time,
       end_time,
-      subjectId: subject_id,
-      is_recurring: true,
-      day_of_week: dayjs.tz(date, req.timezone).format("dddd"),
-      parent_recurring_id: parentRecurringId,
-      isGroup,
-      maxStudents: isGroup ? normalizedMaxStudents : "1",
-    });
-
-    notificationJobs.push({
-      start_time,
-      notification_Time,
-      index: schedulesToCreate.length - 1,
     });
   }
 
-  if (schedulesToCreate.length === 0 && skipedSchedules.length > 0) {
-    const allPast = skipedSchedules.every(
-      (s) => s.conflict === "SESSION_IN_PAST",
-    );
-    if (allPast) {
-      return errorResponse({
-        req,
-        next,
-        status: 400,
-        message: "CANNOT_CREATE_SESSION_IN_PAST",
-        data: { skipedSchedules },
-      });
-    }
-
-    return errorResponse({
-      req,
-      next,
-      status: 409,
-      message: "RECURRING_CREATE_WITH_CONFLICTS",
-      messageParams: { length: skipedSchedules.length },
-      data: { conflicts: skipedSchedules },
-    });
-  }
-
-  // Atomically create all valid schedules + deduct sessions in one transaction
   if (schedulesToCreate.length > 0) {
     await db.transaction(async (tx) => {
-      for (const scheduleData of schedulesToCreate) {
+      for (const { scheduleData, notification_Time: nt, index } of schedulesToCreate) {
         const schedule = await tx.create({
           model: "schedule",
           data: scheduleData,
+        });
+
+        await tx.create({
+          model: "scheduleLog",
+          data: {
+            scheduleId: schedule.id,
+          },
+        });
+
+        notificationJobs.push({
+          scheduleId: schedule.id,
+          start_time: scheduleData.start_time,
+          notification_Time: nt,
+          index,
         });
 
         for (const sId of effectiveStudentIds) {
@@ -643,6 +698,7 @@ export const createRecurringSchedule = asyncHandler(async (req, res, next) => {
     // Queue notification jobs after successful transaction
     const now = new Date();
     for (const {
+      scheduleId,
       start_time: st,
       notification_Time: nt,
       index,
@@ -655,14 +711,17 @@ export const createRecurringSchedule = asyncHandler(async (req, res, next) => {
       } else if (nt === notificationType[2]) {
         reminderTime = new Date(st.getTime() - 30 * 60 * 1000);
         notificationJobType = "before 30 minutes";
-      } else {
+      } else if (nt === notificationType[3]) {
         reminderTime = new Date(st.getTime() - 60 * 60 * 1000);
         notificationJobType = "before 60 minutes";
+      } else {
+        reminderTime = new Date(st.getTime() - 5 * 60 * 1000);
+        notificationJobType = "before 5 minutes";
       }
       if (reminderTime > now) {
         addNotificationJob({
-          scheduleId: createdSchedules[index]?.id,
-          studentId,
+          scheduleId: scheduleId,
+          studentId: studentId || effectiveStudentIds[0],
           type: notificationJobType,
           sendAt: reminderTime,
         });
@@ -671,24 +730,37 @@ export const createRecurringSchedule = asyncHandler(async (req, res, next) => {
   }
 
   if (createdSchedules.length > 0) {
-    const [studentInfo, teacherInfo] = await Promise.all([
-      db.findOne({ model: "student", where: { id: studentId }, include: { user: true } }),
-      db.findOne({ model: "teacher", where: { id: teacherId }, include: { user: true } }),
-    ]);
- await Promise.all([
-   createAdminNotification({
-      title: "تم جدولة الجلسات المتكررة",
-      message: `تم جدولة ${createdSchedules.length} جلسات متكررة للطالب: ${studentInfo?.user?.name || "Student"} مع المدرس: ${teacherInfo?.user?.name || "Teacher"}.`,
-      type: "session_created",
-    }),
-    createTeacherAndStudentNotification({
-    title: "تم جدولة الجلسة",
-    message: `تم جدولة ${createdSchedules.length} جلسة جديدة "${title}" للطالب: ${studentInfo?.user?.name || "Student"} مع المدرس: ${teacherInfo?.user?.name || "Teacher"}.`,
-    type: "session_created",
-    teacherId: teacherInfo?.user?.id,
-    studentId: studentInfo?.user?.id,
-  })
- ])
+    const teacherInfo = await db.findOne({
+      model: "teacher",
+      where: { id: teacherId },
+      include: { user: true },
+    });
+
+    const teacherName = teacherInfo?.user?.name || "Teacher";
+    const studentNames =
+      students.map((s) => s.user?.name || "Student").join(", ") || "Student";
+
+    const notificationPromises = students
+      .filter((s) => s.user?.id)
+      .map((s) =>
+        createTeacherAndStudentNotification({
+          title: "تم جدولة الجلسة",
+          message: `تم جدولة ${createdSchedules.length} جلسة جديدة "${title}" للطالب: ${s.user?.name || "Student"} مع المدرس: ${teacherName}.`,
+          type: "session_created",
+          teacherId: teacherInfo?.user?.id,
+          studentId: s.user.id,
+        })
+      );
+
+    notificationPromises.push(
+      createAdminNotification({
+        title: "تم جدولة الجلسات المتكررة",
+        message: `تم جدولة ${createdSchedules.length} جلسات متكررة للطالب: ${studentNames} مع المدرس: ${teacherName}.`,
+        type: "session_created",
+      })
+    );
+
+    await Promise.all(notificationPromises);
   }
 
   return successResponse({
@@ -1669,6 +1741,7 @@ async function finalizeSession(scheduleId, t) {
     include: {
       scheduleLogs: true,
       student: { include: { user: true } },
+      groupStudents: { include: { student: { include: { user: true } } } },
       teacher: { include: { user: true } },
     },
   });
@@ -1686,6 +1759,12 @@ async function finalizeSession(scheduleId, t) {
 
   const studentActuallyAttended = Boolean(log.joinTime_student);
 
+  const finalStudents = session.isGroup
+    ? session.groupStudents.map((gs) => gs.student).filter(Boolean)
+    : session.student
+    ? [session.student]
+    : [];
+
   await db.transaction(async (tx) => {
     if (log.isStudentAttended !== studentActuallyAttended) {
       await tx.updateOne({
@@ -1696,14 +1775,16 @@ async function finalizeSession(scheduleId, t) {
     }
 
     if (!teacherActuallyAttended) {
-      // Teacher absent => refund student
-      await tx.updateOne({
-        model: "student",
-        where: { id: session.studentId },
-        data: {
-          sessions_remaining: { increment: 1 },
-        },
-      });
+      // Teacher absent => refund all enrolled students
+      for (const st of finalStudents) {
+        await tx.updateOne({
+          model: "student",
+          where: { id: st.id },
+          data: {
+            sessions_remaining: { increment: 1 },
+          },
+        });
+      }
 
       await tx.updateOne({
         model: "schedule",
@@ -1771,24 +1852,28 @@ async function finalizeSession(scheduleId, t) {
 
       // Only count attended session if student really attended
       if (studentActuallyAttended) {
-        await tx.updateOne({
-          model: "student",
-          where: { id: session.studentId },
-          data: {
-            sessions_attended: { increment: 1 },
-            points: { increment: 10 },
-            ...(settings?.paidSessionCount &&
-            (session.student.sessions_attended || 0) + 1 >= settings.paidSessionCount
-              ? { paid: studentPaidStatus.Unpaid }
-              : undefined),
-          },
-        });
+        for (const st of finalStudents) {
+          await tx.updateOne({
+            model: "student",
+            where: { id: st.id },
+            data: {
+              sessions_attended: { increment: 1 },
+              points: { increment: 10 },
+              ...(settings?.paidSessionCount &&
+              (st.sessions_attended || 0) + 1 >= settings.paidSessionCount
+                ? { paid: studentPaidStatus.Unpaid }
+                : undefined),
+            },
+          });
+        }
       }
     }
   });
 
   if (studentActuallyAttended) {
-    await checkAndUpdateStudentRank(session.studentId);
+    for (const st of finalStudents) {
+      await checkAndUpdateStudentRank(st.id);
+    }
   }
 
   const finalStatus = teacherActuallyAttended ? "completed" : "missed";
