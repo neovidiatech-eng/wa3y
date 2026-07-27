@@ -21,7 +21,9 @@ dayjs.extend(timezone);
 export const getAllTeachers = asyncHandler(async (req, res, next) => {
   const { search, page = 1, limit = 10, active } = req.query;
 
-  let where = {};
+  let where = {
+    approved: true
+  };
   if (search) {
     where.user = {
       OR: [
