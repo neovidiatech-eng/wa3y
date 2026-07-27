@@ -825,6 +825,15 @@ export const deleteSchedule = asyncHandler(async (req, res, next) => {
   const schedule = await db.findFirst({
     model: "schedule",
     where: { id },
+    include: {
+      groupStudents: {
+        include: {
+          student: { include: { user: true } },
+        },
+      },
+      student: { include: { user: true } },
+      teacher: { include: { user: true } },
+    },
   });
 
   if (!schedule) {
@@ -839,16 +848,24 @@ export const deleteSchedule = asyncHandler(async (req, res, next) => {
   // Removal job from BullMQ
   await removeNotificationJob(id);
 
+  const students = schedule.isGroup
+    ? schedule.groupStudents.map((gs) => gs.student).filter(Boolean)
+    : schedule.student
+    ? [schedule.student]
+    : [];
+
   // 🛡️ Use transaction to ensure refund and deletion happen together
   await db.transaction(async (tx) => {
     // Refund sessions if it wasn't already cancelled
     if (schedule.status !== "cancelled") {
       const refundSessions = 1;
-      await tx.updateOne({
-        model: "student",
-        where: { id: schedule.studentId },
-        data: { sessions_remaining: { increment: refundSessions } },
-      });
+      for (const student of students) {
+        await tx.updateOne({
+          model: "student",
+          where: { id: student.id },
+          data: { sessions_remaining: { increment: refundSessions } },
+        });
+      }
     }
 
     // Delete from DB
@@ -858,40 +875,53 @@ export const deleteSchedule = asyncHandler(async (req, res, next) => {
     });
 
     // Cleanup student_teacher link if no more sessions exist between this pair
-    const remainingSession = await tx.findFirst({
-      model: "schedule",
-      where: {
-        studentId: schedule.studentId,
-        teacherId: schedule.teacherId,
-        id: { not: id },
-      },
-    });
-    if (!remainingSession) {
-      await tx.deleteMany({
-        model: "student_teacher",
-        where: { studentId: schedule.studentId, teacherId: schedule.teacherId },
+    for (const student of students) {
+      const remainingSession = await tx.findFirst({
+        model: "schedule",
+        where: {
+          teacherId: schedule.teacherId,
+          id: { not: id },
+          OR: [
+            { studentId: student.id },
+            { groupStudents: { some: { studentId: student.id } } },
+          ],
+        },
       });
+      if (!remainingSession) {
+        await tx.deleteMany({
+          model: "student_teacher",
+          where: { studentId: student.id, teacherId: schedule.teacherId },
+        });
+      }
     }
   });
 
-  const [studentInfo, teacherInfo] = await Promise.all([
-    db.findOne({ model: "student", where: { id: schedule.studentId }, include: { user: true } }),
-    db.findOne({ model: "teacher", where: { id: schedule.teacherId }, include: { user: true } }),
-  ]);
-    await Promise.all([
-  createTeacherAndStudentNotification({
-    title: "تم إلغاء الجلسة",
-    message: `تم إلغاء الجلسة "${schedule.title}" للطالب: ${studentInfo?.user?.name || "Student"} مع المدرس: ${teacherInfo?.user?.name || "Teacher"}.`,
-    type: "session_cancelled",
-    teacherId: teacherInfo?.user?.id,
-    studentId: studentInfo?.user?.id,
-  }),
-  createAdminNotification({
-    title: "تم إلغاء الجلسة",
-    message: `تم إلغاء الجلسة "${schedule.title}" للطالب: ${studentInfo?.user?.name || "Student"} مع المدرس: ${teacherInfo?.user?.name || "Teacher"}.`,
-    type: "session_cancelled",
-  }),
- ]);
+  const teacherUserId = schedule.teacher?.user?.id;
+  const teacherName = schedule.teacher?.user?.name || "Teacher";
+  const studentNames =
+    students.map((s) => s.user?.name || "Student").join(", ") || "Student";
+
+  const notificationPromises = students
+    .filter((s) => s.user?.id)
+    .map((s) =>
+      createTeacherAndStudentNotification({
+        title: "تم إلغاء الجلسة",
+        message: `تم إلغاء الجلسة "${schedule.title}" للطالب: ${s.user?.name || "Student"} مع المدرس: ${teacherName}.`,
+        type: "session_cancelled",
+        teacherId: teacherUserId,
+        studentId: s.user.id,
+      })
+    );
+
+  notificationPromises.push(
+    createAdminNotification({
+      title: "تم إلغاء الجلسة",
+      message: `تم إلغاء الجلسة "${schedule.title}" للطالب: ${studentNames} مع المدرس: ${teacherName}.`,
+      type: "session_cancelled",
+    })
+  );
+
+  await Promise.all(notificationPromises);
 
   return successResponse({
     res,
@@ -910,7 +940,15 @@ export const deleteRecurringGroup = asyncHandler(async (req, res, next) => {
   const schedules = await db.findMany({
     model: "schedule",
     where: { parent_recurring_id },
-    select: { id: true },
+    include: {
+      groupStudents: {
+        include: {
+          student: { include: { user: true } },
+        },
+      },
+      student: { include: { user: true } },
+      teacher: { include: { user: true } },
+    },
   });
 
   const sessionsCount = schedules.length;
@@ -927,31 +965,39 @@ export const deleteRecurringGroup = asyncHandler(async (req, res, next) => {
   // Remove all jobs
   await Promise.all(schedules.map((s) => removeNotificationJob(s.id)));
 
-  // Refund sessions for sessions that weren't already cancelled
-  const sessionsToRefund = await db.findMany({
-    model: "schedule",
-    where: { parent_recurring_id, status: { not: "cancelled" } },
-    select: { id: true },
-  });
+  // Calculate session refunds per student for sessions that weren't already cancelled
+  const studentRefunds = new Map(); // studentId -> { student, count }
+  const allStudentsMap = new Map(); // studentId -> student
 
-  const firstSchedule = await db.findFirst({
-    model: "schedule",
-    where: { parent_recurring_id },
-    include: {
-      student: { include: { user: true } },
-      teacher: { include: { user: true } },
-    },
-  });
+  for (const sched of schedules) {
+    const schedStudents = sched.isGroup
+      ? sched.groupStudents.map((gs) => gs.student).filter(Boolean)
+      : sched.student
+      ? [sched.student]
+      : [];
+
+    for (const student of schedStudents) {
+      allStudentsMap.set(student.id, student);
+      if (sched.status !== "cancelled") {
+        if (!studentRefunds.has(student.id)) {
+          studentRefunds.set(student.id, { student, count: 0 });
+        }
+        studentRefunds.get(student.id).count += 1;
+      }
+    }
+  }
+
+  const teacher = schedules[0]?.teacher;
+  const teacherId = schedules[0]?.teacherId;
 
   // 🛡️ Use transaction to ensure refund and mass deletion happen together
   await db.transaction(async (tx) => {
-    if (sessionsToRefund.length > 0) {
-      const totalRefund = sessionsToRefund.length;
-      if (firstSchedule) {
+    for (const [studentId, { count }] of studentRefunds.entries()) {
+      if (count > 0) {
         await tx.updateOne({
           model: "student",
-          where: { id: firstSchedule.studentId },
-          data: { sessions_remaining: { increment: totalRefund } },
+          where: { id: studentId },
+          data: { sessions_remaining: { increment: count } },
         });
       }
     }
@@ -962,44 +1008,61 @@ export const deleteRecurringGroup = asyncHandler(async (req, res, next) => {
       where: { parent_recurring_id },
     });
 
-    // Cleanup student_teacher link if no other sessions exist between this pair
-    if (firstSchedule) {
-      const remainingSession = await tx.findFirst({
-        model: "schedule",
-        where: {
-          studentId: firstSchedule.studentId,
-          teacherId: firstSchedule.teacherId,
-          parent_recurring_id: { not: parent_recurring_id },
-        },
-      });
-      if (!remainingSession) {
-        await tx.deleteMany({
-          model: "student_teacher",
+    // Cleanup student_teacher link if no other sessions exist between pair
+    if (teacherId) {
+      for (const studentId of allStudentsMap.keys()) {
+        const remainingSession = await tx.findFirst({
+          model: "schedule",
           where: {
-            studentId: firstSchedule.studentId,
-            teacherId: firstSchedule.teacherId,
+            teacherId,
+            parent_recurring_id: { not: parent_recurring_id },
+            OR: [
+              { studentId: studentId },
+              { groupStudents: { some: { studentId: studentId } } },
+            ],
           },
         });
+        if (!remainingSession) {
+          await tx.deleteMany({
+            model: "student_teacher",
+            where: {
+              studentId,
+              teacherId,
+            },
+          });
+        }
       }
     }
   });
 
-  if (firstSchedule) {
-    await Promise.all([
+  const teacherUserId = teacher?.user?.id;
+  const teacherName = teacher?.user?.name || "Teacher";
+  const studentNames =
+    Array.from(allStudentsMap.values())
+      .map((s) => s.user?.name || "Student")
+      .join(", ") || "Student";
+
+  const notificationPromises = Array.from(allStudentsMap.values())
+    .filter((s) => s.user?.id)
+    .map((s) =>
       createTeacherAndStudentNotification({
         title: "تم إلغاء الجلسات المتكررة",
-        message: `تم إلغاء جميع الجلسات المتكررة للطالب: ${firstSchedule.student?.user?.name || "Student"} مع المدرس: ${firstSchedule.teacher?.user?.name || "Teacher"}.`,
+        message: `تم إلغاء جميع الجلسات المتكررة للطالب: ${s.user?.name || "Student"} مع المدرس: ${teacherName}.`,
         type: "session_cancelled",
-        teacherId: firstSchedule.teacher?.user?.id,
-        studentId: firstSchedule.student?.user?.id,
-      }),
-      createAdminNotification({
-        title: "تم إلغاء الجلسات المتكررة",
-        message: `تم إلغاء جميع الجلسات المتكررة تحت المجموعة "${parent_recurring_id}" للطالب: ${firstSchedule.student?.user?.name || "Student"} مع المدرس: ${firstSchedule.teacher?.user?.name || "Teacher"}.`,
-        type: "session_cancelled",
-      }),
-    ]);
-  }
+        teacherId: teacherUserId,
+        studentId: s.user.id,
+      })
+    );
+
+  notificationPromises.push(
+    createAdminNotification({
+      title: "تم إلغاء الجلسات المتكررة",
+      message: `تم إلغاء جميع الجلسات المتكررة تحت المجموعة "${parent_recurring_id}" للطلاب: ${studentNames} مع المدرس: ${teacherName}.`,
+      type: "session_cancelled",
+    })
+  );
+
+  await Promise.all(notificationPromises);
 
   return successResponse({
     res,
@@ -1020,7 +1083,10 @@ export const updateSchedule = asyncHandler(async (req, res, next) => {
   const schedule = await db.findOne({
     model: "schedule",
     where: { id },
-    include: { student: { include: { plan: true } } },
+    include: {
+      student: { include: { plan: true } },
+      groupStudents: { include: { student: { include: { plan: true } } } },
+    },
   });
 
   if (!schedule) {
@@ -1039,14 +1105,24 @@ export const updateSchedule = asyncHandler(async (req, res, next) => {
 
   const updateData = { ...otherData };
 
+  const students = schedule.isGroup
+    ? schedule.groupStudents.map((gs) => gs.student).filter(Boolean)
+    : schedule.student
+    ? [schedule.student]
+    : [];
+
+  const targetStudentIds = students.map((s) => s.id);
+
   // If time or type changes, recalculate end time and check conflicts
   if (start_time) {
+    const studentPlan =
+      schedule.student?.plan || schedule.groupStudents?.[0]?.student?.plan;
     startTime = start_time
       ? normalizeDate(start_time, req.timezone)
       : startTime;
     endTime = getEndTime({
       startTime,
-      duration: schedule.student.plan?.sessionTime,
+      duration: studentPlan?.sessionTime,
       tz: req.timezone,
     });
 
@@ -1065,21 +1141,26 @@ export const updateSchedule = asyncHandler(async (req, res, next) => {
         end_time: { gt: startTime },
       },
     });
-    const student_conflict = schedule.studentId
-      ? await db.findFirst({
-          model: "schedule",
-          where: {
-            id: { not: id },
-            status: { not: "cancelled" },
-            start_time: { lt: endTime },
-            end_time: { gt: startTime },
-            OR: [
-              { studentId: schedule.studentId },
-              { groupStudents: { some: { studentId: schedule.studentId } } },
-            ],
-          },
-        })
-      : null;
+    const student_conflict =
+      targetStudentIds.length > 0
+        ? await db.findFirst({
+            model: "schedule",
+            where: {
+              id: { not: id },
+              status: { not: "cancelled" },
+              start_time: { lt: endTime },
+              end_time: { gt: startTime },
+              OR: [
+                { studentId: { in: targetStudentIds } },
+                {
+                  groupStudents: {
+                    some: { studentId: { in: targetStudentIds } },
+                  },
+                },
+              ],
+            },
+          })
+        : null;
 
     if (teacher_conflict || student_conflict) {
       return errorResponse({
@@ -1096,14 +1177,19 @@ export const updateSchedule = asyncHandler(async (req, res, next) => {
     const sessionUnits = 1;
     if (otherData.status === "cancelled") {
       // Refund
-      await db.updateOne({
-        model: "student",
-        where: { id: schedule.studentId },
-        data: { sessions_remaining: { increment: sessionUnits } },
-      });
+      for (const student of students) {
+        await db.updateOne({
+          model: "student",
+          where: { id: student.id },
+          data: { sessions_remaining: { increment: sessionUnits } },
+        });
+      }
     } else if (schedule.status === "cancelled") {
       // Restoring: Deduct
-      if (schedule.student.sessions_remaining < sessionUnits) {
+      const insufficientStudent = students.find(
+        (s) => s.sessions_remaining < sessionUnits
+      );
+      if (insufficientStudent) {
         return errorResponse({
           req,
           next,
@@ -1111,11 +1197,13 @@ export const updateSchedule = asyncHandler(async (req, res, next) => {
           message: "INSUFFICIENT_SESSIONS_RESTORE",
         });
       }
-      await db.updateOne({
-        model: "student",
-        where: { id: schedule.studentId },
-        data: { sessions_remaining: { decrement: sessionUnits } },
-      });
+      for (const student of students) {
+        await db.updateOne({
+          model: "student",
+          where: { id: student.id },
+          data: { sessions_remaining: { decrement: sessionUnits } },
+        });
+      }
     }
   }
 

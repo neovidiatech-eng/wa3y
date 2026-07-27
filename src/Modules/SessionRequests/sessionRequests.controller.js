@@ -274,12 +274,23 @@ export const approveRequest = asyncHandler(async (req, res, next) => {
       const session = await tx.findOne({
         model: "schedule",
         where: { id: sessionId },
+        include: { groupStudents: true },
       });
-      await tx.updateOne({
-        model: "student",
-        where: { id: session.studentId },
-        data: { sessions_remaining: { increment: 1 } },
-      });
+      if (session) {
+        const studentIds = session.isGroup
+          ? session.groupStudents.map((gs) => gs.studentId)
+          : session.studentId
+          ? [session.studentId]
+          : [];
+
+        for (const sId of studentIds) {
+          await tx.updateOne({
+            model: "student",
+            where: { id: sId },
+            data: { sessions_remaining: { increment: 1 } },
+          });
+        }
+      }
 
       oldSessionIdToRemove = sessionId;
     } else if (type === "new_session") {
