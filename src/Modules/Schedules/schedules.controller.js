@@ -125,7 +125,6 @@ export const createSchedule = asyncHandler(async (req, res, next) => {
     notes,
     date,
     start_time,
-    isGroup = false,
     maxStudents = "1",
   } = req.body;
 
@@ -141,6 +140,9 @@ export const createSchedule = asyncHandler(async (req, res, next) => {
       message: "STUDENT_NOT_FOUND",
     });
   }
+
+  const isGroup =
+    effectiveStudentIds.length > 1 ? true : Boolean(req.body.isGroup);
 
   /* check if students and teacher exist */
   const [students, teacher, subject] = await Promise.all([
@@ -184,20 +186,24 @@ export const createSchedule = asyncHandler(async (req, res, next) => {
   }
 
   /* check max students */
-  const normalizedMaxStudents =
+  let normalizedMaxStudents =
     maxStudents === "0" || maxStudents === 0 || maxStudents === "unlimited"
       ? "unlimited"
       : String(maxStudents);
 
   if (isGroup && normalizedMaxStudents !== "unlimited") {
-    const max = parseInt(normalizedMaxStudents);
+    const max = parseInt(normalizedMaxStudents, 10);
     if (!isNaN(max) && effectiveStudentIds.length > max) {
-      return errorResponse({
-        req,
-        next,
-        status: 400,
-        message: "EXCEEDED_MAX_STUDENTS",
-      });
+      if (req.body.maxStudents !== undefined) {
+        return errorResponse({
+          req,
+          next,
+          status: 400,
+          message: "EXCEEDED_MAX_STUDENTS",
+        });
+      } else {
+        normalizedMaxStudents = String(effectiveStudentIds.length);
+      }
     }
   }
 
@@ -375,11 +381,44 @@ export const createSchedule = asyncHandler(async (req, res, next) => {
 
   await Promise.all(notificationPromises);
 
+  const fullSchedule = await db.findOne({
+    model: "schedule",
+    where: { id: newSchedule.id },
+    include: {
+      student: {
+        include: {
+          user: {
+            select: { id: true, name: true, email: true, phone: true, code_country: true },
+          },
+        },
+      },
+      teacher: {
+        include: {
+          user: {
+            select: { id: true, name: true, email: true, phone: true, code_country: true },
+          },
+        },
+      },
+      subject: true,
+      groupStudents: {
+        include: {
+          student: {
+            include: {
+              user: {
+                select: { id: true, name: true, email: true, phone: true, code_country: true },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+
   return successResponse({
     res,
     req,
     data: {
-      schedule: formatSchedules(newSchedule, req.timezone),
+      schedule: formatSchedules(fullSchedule || newSchedule, req.timezone),
     },
     status: 201,
     message: "CREATE_SUCCESS",
@@ -407,7 +446,6 @@ export const createRecurringSchedule = asyncHandler(async (req, res, next) => {
     notification_Time,
     sessions = [],
     customSessions = [],
-    isGroup = false,
     maxStudents = "1",
   } = req.body;
   const skipedSchedules = [];
@@ -424,6 +462,9 @@ export const createRecurringSchedule = asyncHandler(async (req, res, next) => {
       message: "STUDENT_NOT_FOUND",
     });
   }
+
+  const isGroup =
+    effectiveStudentIds.length > 1 ? true : Boolean(req.body.isGroup);
 
   /* check exist student, teacher, subject */
   const [students, teacher, subject] = await Promise.all([
@@ -449,20 +490,24 @@ export const createRecurringSchedule = asyncHandler(async (req, res, next) => {
     });
   }
 
-  const normalizedMaxStudents =
+  let normalizedMaxStudents =
     maxStudents === "0" || maxStudents === 0 || maxStudents === "unlimited"
       ? "unlimited"
       : String(maxStudents);
 
   if (isGroup && normalizedMaxStudents !== "unlimited") {
-    const max = parseInt(normalizedMaxStudents);
+    const max = parseInt(normalizedMaxStudents, 10);
     if (!isNaN(max) && effectiveStudentIds.length > max) {
-      return errorResponse({
-        req,
-        next,
-        status: 400,
-        message: "EXCEEDED_MAX_STUDENTS",
-      });
+      if (req.body.maxStudents !== undefined) {
+        return errorResponse({
+          req,
+          next,
+          status: 400,
+          message: "EXCEEDED_MAX_STUDENTS",
+        });
+      } else {
+        normalizedMaxStudents = String(effectiveStudentIds.length);
+      }
     }
   }
 
