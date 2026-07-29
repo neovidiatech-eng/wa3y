@@ -35,43 +35,92 @@ import { studentPaidStatus } from "../../Utils/Enums/studentts.js";
 /*            Admin creates multiple sessions in one request            */
 /* ------------------------------------------------------------------ */
 export const getAllSchedules = asyncHandler(async (req, res, next) => {
-  const { search, start_date, end_date, page = 1, limit = 10 } = req.query;
+  const {
+    search,
+    start_date,
+    end_date,
+    teacherId,
+    studentId,
+    status,
+    isGroup,
+    subjectId,
+    page = 1,
+    limit = 10,
+  } = req.query;
 
   const where = {};
+
+  if (status) {
+    where.status = status;
+  }
+
+  if (isGroup !== undefined) {
+    where.isGroup = isGroup === "true";
+  }
+
+  if (teacherId) {
+    where.teacherId = teacherId;
+  }
+
+  if (subjectId) {
+    where.subjectId = subjectId;
+  }
+
+  if (studentId) {
+    where.AND = where.AND || [];
+    where.AND.push({
+      OR: [
+        { studentId: studentId },
+        { groupStudents: { some: { studentId: studentId } } },
+      ],
+    });
+  }
+
   if (search) {
-    where.OR = [
-      {
-        student: {
-          user: {
-            name: { contains: search, mode: "insensitive" },
+    where.AND = where.AND || [];
+    where.AND.push({
+      OR: [
+        {
+          student: {
+            user: {
+              name: { contains: search, mode: "insensitive" },
+            },
           },
         },
-      },
-      {
-        teacher: {
-          user: {
-            name: { contains: search, mode: "insensitive" },
+        {
+          teacher: {
+            user: {
+              name: { contains: search, mode: "insensitive" },
+            },
           },
         },
-      },
-      {
-        groupStudents: {
-          some: {
-            student: {
-              user: {
-                name: { contains: search, mode: "insensitive" },
+        {
+          groupStudents: {
+            some: {
+              student: {
+                user: {
+                  name: { contains: search, mode: "insensitive" },
+                },
               },
             },
           },
         },
-      },
-    ];
+      ],
+    });
   }
 
   // 📅 فلترة بالتاريخ
   if (start_date && end_date) {
     where.start_time = {
       gte: normalizeDate(start_date, req.timezone),
+      lte: normalizeDate(end_date, req.timezone),
+    };
+  } else if (start_date) {
+    where.start_time = {
+      gte: normalizeDate(start_date, req.timezone),
+    };
+  } else if (end_date) {
+    where.start_time = {
       lte: normalizeDate(end_date, req.timezone),
     };
   }
@@ -82,6 +131,7 @@ export const getAllSchedules = asyncHandler(async (req, res, next) => {
       where,
       page,
       limit,
+      orderBy: { start_time: "asc" },
       include: {
         student: {
           include: {
@@ -135,7 +185,11 @@ export const getAllSchedules = asyncHandler(async (req, res, next) => {
   return successResponse({
     res,
     req,
-    data: { schedule: formattedSchedules, pagination },
+    data: {
+      schedules: formattedSchedules,
+      schedule: formattedSchedules,
+      pagination,
+    },
     status: 200,
     message: "FETCH_SUCCESS",
   });
@@ -853,13 +907,27 @@ export const createRecurringSchedule = asyncHandler(async (req, res, next) => {
 /* ------------------------------------------------------------------ */
 export const getUserSchedules = asyncHandler(async (req, res, next) => {
   const { user } = req;
-  const { status, search } = req.query;
+  const {
+    status,
+    search,
+    start_date,
+    end_date,
+    isGroup,
+    teacherId,
+    studentId,
+    subjectId,
+  } = req.query;
 
   const where = {};
-  if (status) where.status = status;
 
-  // Handle filtering based on user role
-  if (user.role?.name?.toLowerCase() === "teacher") {
+  if (status) where.status = status;
+  if (isGroup !== undefined) where.isGroup = isGroup === "true";
+  if (subjectId) where.subjectId = subjectId;
+
+  const userRole = user.role?.name?.toLowerCase();
+
+  // Role-based scoping
+  if (userRole === "teacher") {
     const teacher = user.teacher;
     if (!teacher) {
       return errorResponse({
@@ -870,7 +938,7 @@ export const getUserSchedules = asyncHandler(async (req, res, next) => {
       });
     }
     where.teacherId = teacher.id;
-  } else if (user.role?.name?.toLowerCase() === "student") {
+  } else if (userRole === "student") {
     const student = user.student;
     if (!student) {
       return errorResponse({
@@ -880,53 +948,84 @@ export const getUserSchedules = asyncHandler(async (req, res, next) => {
         message: "STUDENT_NOT_FOUND",
       });
     }
-    where.OR = [
-      { studentId: student.id },
-      { groupStudents: { some: { studentId: student.id } } },
-    ];
+    where.AND = where.AND || [];
+    where.AND.push({
+      OR: [
+        { studentId: student.id },
+        { groupStudents: { some: { studentId: student.id } } },
+      ],
+    });
+  } else {
+    // Admin / Staff role: allow optional teacherId or studentId query filters
+    if (teacherId) where.teacherId = teacherId;
+    if (studentId) {
+      where.AND = where.AND || [];
+      where.AND.push({
+        OR: [
+          { studentId: studentId },
+          { groupStudents: { some: { studentId: studentId } } },
+        ],
+      });
+    }
+  }
+
+  // 📅 Date range filtering
+  if (start_date && end_date) {
+    where.start_time = {
+      gte: normalizeDate(start_date, req.timezone),
+      lte: normalizeDate(end_date, req.timezone),
+    };
+  } else if (start_date) {
+    where.start_time = {
+      gte: normalizeDate(start_date, req.timezone),
+    };
+  } else if (end_date) {
+    where.start_time = {
+      lte: normalizeDate(end_date, req.timezone),
+    };
   }
 
   if (search) {
-    if (where.teacherId) {
-      // If teacher is viewing, search by student name (individual or group)
-      where.AND = [
-        {
-          OR: [
-            { student: { user: { name: { contains: search, mode: "insensitive" } } } },
-            { groupStudents: { some: { student: { user: { name: { contains: search, mode: "insensitive" } } } } } },
-          ],
+    where.AND = where.AND || [];
+    if (userRole === "teacher") {
+      where.AND.push({
+        OR: [
+          { student: { user: { name: { contains: search, mode: "insensitive" } } } },
+          { groupStudents: { some: { student: { user: { name: { contains: search, mode: "insensitive" } } } } } },
+        ],
+      });
+    } else if (userRole === "student") {
+      where.AND.push({
+        teacher: {
+          user: {
+            name: { contains: search, mode: "insensitive" },
+          },
         },
-      ];
-    } else if (user.role?.name?.toLowerCase() === "student") {
-      // If student is viewing, search by teacher name
-      where.teacher = {
-        user: {
-          name: { contains: search, mode: "insensitive" },
-        },
-      };
+      });
     } else {
-      // If admin, search by both
-      where.OR = [
-        {
-          student: {
-            user: { name: { contains: search, mode: "insensitive" } },
+      where.AND.push({
+        OR: [
+          {
+            student: {
+              user: { name: { contains: search, mode: "insensitive" } },
+            },
           },
-        },
-        {
-          teacher: {
-            user: { name: { contains: search, mode: "insensitive" } },
+          {
+            teacher: {
+              user: { name: { contains: search, mode: "insensitive" } },
+            },
           },
-        },
-        {
-          groupStudents: {
-            some: {
-              student: {
-                user: { name: { contains: search, mode: "insensitive" } },
+          {
+            groupStudents: {
+              some: {
+                student: {
+                  user: { name: { contains: search, mode: "insensitive" } },
+                },
               },
             },
           },
-        },
-      ];
+        ],
+      });
     }
   }
 
@@ -979,6 +1078,255 @@ export const getUserSchedules = asyncHandler(async (req, res, next) => {
         },
       },
     },
+    orderBy: { start_time: "asc" },
+  });
+
+  const formattedSchedules = formatSchedules(schedules, req.timezone);
+
+  return successResponse({
+    res,
+    req,
+    status: 200,
+    message: "FETCH_SUCCESS",
+    data: formattedSchedules,
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/*                  Get schedules for a specific teacher              */
+/* ------------------------------------------------------------------ */
+export const getTeacherSchedules = asyncHandler(async (req, res, next) => {
+  const teacherId = req.params.teacherId || req.query.teacherId;
+  const { status, search, start_date, end_date, page, limit } = req.query;
+
+  const where = { teacherId };
+  if (status) where.status = status;
+
+  if (start_date && end_date) {
+    where.start_time = {
+      gte: normalizeDate(start_date, req.timezone),
+      lte: normalizeDate(end_date, req.timezone),
+    };
+  } else if (start_date) {
+    where.start_time = {
+      gte: normalizeDate(start_date, req.timezone),
+    };
+  } else if (end_date) {
+    where.start_time = {
+      lte: normalizeDate(end_date, req.timezone),
+    };
+  }
+
+  if (search) {
+    where.AND = where.AND || [];
+    where.AND.push({
+      OR: [
+        { student: { user: { name: { contains: search, mode: "insensitive" } } } },
+        { groupStudents: { some: { student: { user: { name: { contains: search, mode: "insensitive" } } } } } },
+      ],
+    });
+  }
+
+  const includeConfig = {
+    student: {
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+            code_country: true,
+          },
+        },
+      },
+    },
+    teacher: {
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+            code_country: true,
+          },
+        },
+      },
+    },
+    subject: true,
+    groupStudents: {
+      include: {
+        student: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                phone: true,
+                code_country: true,
+              },
+            },
+          },
+        },
+      },
+    },
+  };
+
+  if (page && limit) {
+    const { items: schedules, pagination } = await db.findManyWithPaginationAndCount({
+      model: "schedule",
+      where,
+      page: Number(page),
+      limit: Number(limit),
+      orderBy: { start_time: "asc" },
+      include: includeConfig,
+    });
+
+    const formattedSchedules = formatSchedules(schedules, req.timezone);
+
+    return successResponse({
+      res,
+      req,
+      status: 200,
+      message: "FETCH_SUCCESS",
+      data: { schedules: formattedSchedules, pagination },
+    });
+  }
+
+  const schedules = await db.findMany({
+    model: "schedule",
+    where,
+    include: includeConfig,
+    orderBy: { start_time: "asc" },
+  });
+
+  const formattedSchedules = formatSchedules(schedules, req.timezone);
+
+  return successResponse({
+    res,
+    req,
+    status: 200,
+    message: "FETCH_SUCCESS",
+    data: formattedSchedules,
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/*                  Get schedules for a specific student              */
+/* ------------------------------------------------------------------ */
+export const getStudentSchedules = asyncHandler(async (req, res, next) => {
+  const studentId = req.params.studentId || req.query.studentId;
+  const { status, search, start_date, end_date, page, limit } = req.query;
+
+  const where = {
+    OR: [
+      { studentId },
+      { groupStudents: { some: { studentId } } },
+    ],
+  };
+
+  if (status) where.status = status;
+
+  if (start_date && end_date) {
+    where.start_time = {
+      gte: normalizeDate(start_date, req.timezone),
+      lte: normalizeDate(end_date, req.timezone),
+    };
+  } else if (start_date) {
+    where.start_time = {
+      gte: normalizeDate(start_date, req.timezone),
+    };
+  } else if (end_date) {
+    where.start_time = {
+      lte: normalizeDate(end_date, req.timezone),
+    };
+  }
+
+  if (search) {
+    where.AND = where.AND || [];
+    where.AND.push({
+      teacher: {
+        user: {
+          name: { contains: search, mode: "insensitive" },
+        },
+      },
+    });
+  }
+
+  const includeConfig = {
+    student: {
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+            code_country: true,
+          },
+        },
+      },
+    },
+    teacher: {
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+            code_country: true,
+          },
+        },
+      },
+    },
+    subject: true,
+    groupStudents: {
+      include: {
+        student: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                phone: true,
+                code_country: true,
+              },
+            },
+          },
+        },
+      },
+    },
+  };
+
+  if (page && limit) {
+    const { items: schedules, pagination } = await db.findManyWithPaginationAndCount({
+      model: "schedule",
+      where,
+      page: Number(page),
+      limit: Number(limit),
+      orderBy: { start_time: "asc" },
+      include: includeConfig,
+    });
+
+    const formattedSchedules = formatSchedules(schedules, req.timezone);
+
+    return successResponse({
+      res,
+      req,
+      status: 200,
+      message: "FETCH_SUCCESS",
+      data: { schedules: formattedSchedules, pagination },
+    });
+  }
+
+  const schedules = await db.findMany({
+    model: "schedule",
+    where,
+    include: includeConfig,
     orderBy: { start_time: "asc" },
   });
 
