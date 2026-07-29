@@ -60,94 +60,29 @@ export const getStudentCalendar = asyncHandler(async (req, res, next) => {
     db.count({
       model: "schedule",
       where: {
-        studentId: id,
-      },
-      include: {
-        teacher: {
-          select: {
-            user: {
-              select: {
-                name: true,
-                email: true,
-                role: {
-                  select: {
-                    name: true,
-                  },
-                },
-              },
-            },
-          },
-        },
-        student: {
-          select: {
-            user: {
-              select: {
-                name: true,
-                email: true,
-                role: {
-                  select: {
-                    name: true,
-                  },
-                },
-              },
-            },
-          },
-        },
-        subject: {
-          select: {
-            name: true,
-          },
-        },
+        OR: [
+          { studentId: id },
+          { groupStudents: { some: { studentId: id } } },
+        ],
       },
     }),
     db.count({
       model: "schedule",
       where: {
         status: { in: ["scheduled", "planned"] },
-        studentId: id,
-      },
-      include: {
-        teacher: {
-          select: {
-            user: {
-              select: {
-                name: true,
-                email: true,
-                role: {
-                  select: {
-                    name: true,
-                  },
-                },
-              },
-            },
-          },
-        },
-        student: {
-          select: {
-            user: {
-              select: {
-                name: true,
-                email: true,
-                role: {
-                  select: {
-                    name: true,
-                  },
-                },
-              },
-            },
-          },
-        },
-        subject: {
-          select: {
-            name: true,
-          },
-        },
+        OR: [
+          { studentId: id },
+          { groupStudents: { some: { studentId: id } } },
+        ],
       },
     }),
     db.findMany({
       model: "schedule",
       where: {
-        studentId: id,
+        OR: [
+          { studentId: id },
+          { groupStudents: { some: { studentId: id } } },
+        ],
       },
       include: {
         teacher: {
@@ -174,6 +109,21 @@ export const getStudentCalendar = asyncHandler(async (req, res, next) => {
                 role: {
                   select: {
                     name: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        groupStudents: {
+          include: {
+            student: {
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true,
                   },
                 },
               },
@@ -190,7 +140,10 @@ export const getStudentCalendar = asyncHandler(async (req, res, next) => {
           gte: startOfDay,
           lte: endOfDay,
         },
-        studentId: id,
+        OR: [
+          { studentId: id },
+          { groupStudents: { some: { studentId: id } } },
+        ],
       },
       include: {
         teacher: {
@@ -217,6 +170,21 @@ export const getStudentCalendar = asyncHandler(async (req, res, next) => {
                 role: {
                   select: {
                     name: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        groupStudents: {
+          include: {
+            student: {
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true,
                   },
                 },
               },

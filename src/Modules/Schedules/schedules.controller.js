@@ -54,6 +54,17 @@ export const getAllSchedules = asyncHandler(async (req, res, next) => {
           },
         },
       },
+      {
+        groupStudents: {
+          some: {
+            student: {
+              user: {
+                name: { contains: search, mode: "insensitive" },
+              },
+            },
+          },
+        },
+      },
     ];
   }
 
@@ -99,6 +110,23 @@ export const getAllSchedules = asyncHandler(async (req, res, next) => {
           },
         },
         subject: true,
+        groupStudents: {
+          include: {
+            student: {
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    phone: true,
+                    code_country: true,
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     });
 
@@ -852,18 +880,24 @@ export const getUserSchedules = asyncHandler(async (req, res, next) => {
         message: "STUDENT_NOT_FOUND",
       });
     }
-    where.studentId = student.id;
+    where.OR = [
+      { studentId: student.id },
+      { groupStudents: { some: { studentId: student.id } } },
+    ];
   }
 
   if (search) {
     if (where.teacherId) {
-      // If teacher is viewing, search by student name
-      where.student = {
-        user: {
-          name: { contains: search, mode: "insensitive" },
+      // If teacher is viewing, search by student name (individual or group)
+      where.AND = [
+        {
+          OR: [
+            { student: { user: { name: { contains: search, mode: "insensitive" } } } },
+            { groupStudents: { some: { student: { user: { name: { contains: search, mode: "insensitive" } } } } } },
+          ],
         },
-      };
-    } else if (where.studentId) {
+      ];
+    } else if (user.role?.name?.toLowerCase() === "student") {
       // If student is viewing, search by teacher name
       where.teacher = {
         user: {
@@ -881,6 +915,15 @@ export const getUserSchedules = asyncHandler(async (req, res, next) => {
         {
           teacher: {
             user: { name: { contains: search, mode: "insensitive" } },
+          },
+        },
+        {
+          groupStudents: {
+            some: {
+              student: {
+                user: { name: { contains: search, mode: "insensitive" } },
+              },
+            },
           },
         },
       ];
@@ -918,6 +961,23 @@ export const getUserSchedules = asyncHandler(async (req, res, next) => {
         },
       },
       subject: true,
+      groupStudents: {
+        include: {
+          student: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                  phone: true,
+                  code_country: true,
+                },
+              },
+            },
+          },
+        },
+      },
     },
     orderBy: { start_time: "asc" },
   });
