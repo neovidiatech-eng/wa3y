@@ -23,6 +23,9 @@ export const getCalendar = asyncHandler(async (req, res, next) => {
     }),
     db.findMany({
       model: "schedule",
+      include: {
+        reviews: true,
+      }
     }),
     db.findMany({
       model: "schedule",
@@ -32,6 +35,9 @@ export const getCalendar = asyncHandler(async (req, res, next) => {
           lte: endOfDay,
         },
       },
+      include: {
+        reviews: true,
+      }
     }),
   ]);
   const formattedSessions = formatSchedules(sessions, req.timezone);
