@@ -416,5 +416,10 @@
   "TARGET_TYPE_INVALID": "نوع المستهدف يجب أن يكون: الكل، المعلمين، الطلاب، أولياء الأمور، أو مستخدم فردي",
   "TARGET_TYPE_REQUIRED": "نوع المستهدف مطلوب",
   "NOTIFICATION_NOT_FOUND": "الإشعار غير موجود",
-  "NO_TARGET_USERS_FOUND": "لم يتم العثور على مستخدمين مستهدفين لهذا الإشعار"
+  "NO_TARGET_USERS_FOUND": "لم يتم العثور على مستخدمين مستهدفين لهذا الإشعار",
+  "NOTIFICATION_NEW_QURAN_RECITATION_TITLE": "ورد تلاوة جديد",
+  "NOTIFICATION_NEW_QURAN_RECITATION_MSG": "تم إضافة ورد تلاوة جديد لك: سورة {{surah}} (من صفحة {{startPage}} إلى {{endPage}})",
+  "NOTIFICATION_RECITATION_STATUS_UPDATED_TITLE": "تحديث حالة ورد التلاوة",
+  "NOTIFICATION_RECITATION_STATUS_UPDATED_MSG": "قام الطالب بتحديث حالة ورد سورة {{surah}} إلى {{status}}",
+  "RECITATION_NOT_FOUND": "ورد التلاوة غير موجود"
 }

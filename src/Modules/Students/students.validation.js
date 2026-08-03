@@ -60,6 +60,7 @@ export const updateStudentSchema = {
       timezone: Joi.string().optional(),
       city: generalFeilds.city.optional(),
       age: generalFeilds.age.optional(),
+      paid: Joi.string().valid(...Object.values(studentPaidStatus)).optional(),
     })
     .custom(
       validateInternationalPhoneLength({

@@ -27,7 +27,7 @@ export const createSchedule = {
           "any.required": "TITLE_REQUIRED",
           "string.pattern.base": "TITLE_INVALID",
         })
-        .required(),
+        .optional(),
       description: generalFeilds.description
         .messages({
           "string.empty": "DESCRIPTION_REQUIRED",
@@ -74,7 +74,7 @@ export const createRecurringSchedule = {
       studentIds: Joi.array().items(generalFeilds.id).optional(),
       teacherId: generalFeilds.id.required(),
       subject_id: generalFeilds.id.required(),
-      title: generalFeilds.name.required(),
+      title: generalFeilds.name.optional(),
       description: generalFeilds.description.optional(),
       link: generalFeilds.url.required(),
       notes: generalFeilds.description.optional(),

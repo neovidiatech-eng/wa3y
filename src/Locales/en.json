@@ -416,5 +416,10 @@
   "RANK_DELETED_SUCCESS": "Rank deleted successfully",
   "STUDENT_RANK_ASSIGNED_SUCCESS": "Student rank assigned successfully",
   "RANK_NOT_FOUND": "Rank not found",
-  "RANK_NAME_EXISTS": "Rank name already exists"
+  "RANK_NAME_EXISTS": "Rank name already exists",
+  "NOTIFICATION_NEW_QURAN_RECITATION_TITLE": "New Quran Recitation Task",
+  "NOTIFICATION_NEW_QURAN_RECITATION_MSG": "A new recitation task has been assigned: Surah {{surah}} (Pages {{startPage}} to {{endPage}})",
+  "NOTIFICATION_RECITATION_STATUS_UPDATED_TITLE": "Quran Recitation Status Updated",
+  "NOTIFICATION_RECITATION_STATUS_UPDATED_MSG": "Student updated the status of Surah {{surah}} recitation to {{status}}",
+  "RECITATION_NOT_FOUND": "Quran recitation not found"
 }

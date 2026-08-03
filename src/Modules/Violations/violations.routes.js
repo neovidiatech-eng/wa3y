@@ -59,6 +59,7 @@ router.get(
 router.get(
   "/me",
   authentication(),
+  authorize(PERMISSIONS_V2.VIOLATIONS.READ_MY_VIOLATIONS),
   validation(violationsValidation.getAuthTeacherViolationsSchema),
   violationsController.getAuthUserViolations
 );

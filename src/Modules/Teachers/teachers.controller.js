@@ -532,27 +532,27 @@ export const getMyStudents = asyncHandler(async (req, res, next) => {
 
   const studentsMap = {};
   for (const item of myStudents) {
-    const student = item.student;
-    if (!studentsMap[student.id]) {
-      await decryptUserSensitiveFields(student.user);
+    const student = item?.student;
+    if (!studentsMap[student?.id]) {
+      await decryptUserSensitiveFields(student?.user);
 
       // Use per-student custom rate; fallback to teacher's default rate
-      const hourPrice = item.hour_price || teacher.hour_price || 0;
-      const sessionTime = student.plan?.sessionTime ?? null; // minutes
+      const hourPrice = item?.hour_price || teacher?.hour_price || 0;
+      const sessionTime = student?.plan?.sessionTime ?? null; // minutes
       const sessionPrice =
         sessionTime !== null ? (hourPrice / 60) * sessionTime : null;
 
-      studentsMap[student.id] = {
-        id: student.id,
-        name: student.user.name,
-        code: `STU-${student.id.slice(0, 3)}`,
-        email: student.user.email,
-        phone: student.user.phone,
-        sessions: `${student.sessions_attended}/${student.sessions}`,
+      studentsMap[student?.id] = {
+        id: student?.id,
+        name: student?.user?.name,
+        code: `STU-${student?.id?.slice(0, 3)}`,
+        email: student?.user?.email,
+        phone: student?.user?.phone,
+        sessions: `${student?.sessions_attended}/${student?.sessions}`,
         hour_price: hourPrice,
         session_price:
           sessionPrice !== null ? parseFloat(sessionPrice.toFixed(2)) : null,
-        plan: student.plan?.name_en ?? null,
+        plan: student?.plan?.name_en ?? null,
         session_duration_minutes: sessionTime,
       };
     }

@@ -177,6 +177,8 @@ export const getAllSchedules = asyncHandler(async (req, res, next) => {
             },
           },
         },
+
+        reviews:true
       },
     });
 

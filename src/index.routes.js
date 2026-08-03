@@ -26,6 +26,7 @@ import notificationsRouter from "./Modules/Notifications/notifications.routes.js
 import userNotificationsRouter from "./Modules/Notifications/userNotifications.routes.js";
 import violationsRouter from "./Modules/Violations/violations.routes.js";
 import ranksRouter from "./Modules/Ranks/ranks.routes.js";
+import dailyQuranRecitationRouter from "./Modules/DailyQuranRecitation/dailyQuranRecitation.routes.js";
 
 const rootRouter = Router();
 
@@ -54,6 +55,7 @@ rootRouter.use("/admin/notifications", notificationsRouter);
 rootRouter.use("/notifications", userNotificationsRouter);
 rootRouter.use("/violations", violationsRouter);
 rootRouter.use("/ranks", ranksRouter);
+rootRouter.use("/daily-quran-recitation", dailyQuranRecitationRouter);
 
 // Static files
 rootRouter.use("/uploads", express.static(path.resolve("./uploads")));

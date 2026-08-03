@@ -12,7 +12,7 @@ const router = Router();
 router.get(
   "/",
   authentication(),
-  authorizeResource("withdrawals"),
+  authorize(PERMISSIONS_V2.WITHDRAWALS.READ_MY_WITHDRAWALS),
   withdrawalController.getWithdrawals
 );
 router.get(

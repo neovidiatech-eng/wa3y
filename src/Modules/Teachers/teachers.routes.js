@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { authentication } from "../../Middlewares/Authentication.js";
-import { authorizeResource } from "../../Middlewares/AuthorizationMiddleware.js";
+import { authorize, authorizeResource } from "../../Middlewares/AuthorizationMiddleware.js";
+import { PERMISSIONS_V2 } from "../../Constants/permissions.constants.js";
 import * as teacherController from "./teachers.controller.js";
 import { validation } from "../../Middlewares/Validation.js";
 import {
@@ -27,7 +28,7 @@ router.get(
 router.get(
   "/my-students",
   authentication(),
-  authorizeResource("teachers"),
+  authorize(PERMISSIONS_V2.TEACHERS.READ_MY_STUDENTS),
   teacherController.getMyStudents,
 );
 

@@ -322,6 +322,7 @@ export const updateStudent = asyncHandler(async (req, res, next) => {
     password,
     age,
     city,
+    paid,
   } = req.body;
 
   const student = await ensureExists({
@@ -367,7 +368,8 @@ export const updateStudent = asyncHandler(async (req, res, next) => {
     timezone ||
     password ||
     age !== undefined ||
-    city !== undefined
+    city !== undefined ||
+    paid !== undefined
   ) {
     await db.updateOne({
       model: "user",
@@ -396,6 +398,7 @@ export const updateStudent = asyncHandler(async (req, res, next) => {
       ...(birth_date && { birth_date: new Date(birth_date) }),
       ...(gender && { gender }),
       ...(active !== undefined && { active }),
+      ...(paid !== undefined && { paid }),
     },
     include: { user: true, plan: true },
   });
