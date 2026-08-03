@@ -21,6 +21,7 @@ import { seedSettings } from "./seeders/settings.seeder.js";
 import { seedNotifications } from "./seeders/notifications.seeder.js";
 import { seedInfractionItems } from "./seeders/violations.seeder.js";
 import { seedRanks } from "./seeders/ranks.seeder.js";
+import { seedReviews } from "./seeders/reviews.seeder.js";
 
 dotenv.config();
 
@@ -49,6 +50,7 @@ async function main() {
   await seedNotifications();
   await seedInfractionItems();
   await seedRanks();
+  await seedReviews();
 
   console.log("--- Seeding Finished Successfully ---");
 }

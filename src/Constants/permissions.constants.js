@@ -7,6 +7,9 @@ export const PERMISSIONS_V2 = {
   DASHBOARD: {
     READ: "dashboard:read",
   },
+  feedback:{
+    READ: "feedback:read",
+  },
 
   POLICIES: {
     READ: "policies:read",
