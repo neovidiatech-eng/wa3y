@@ -14,6 +14,9 @@ import { studentPaidStatus } from "../../Utils/Enums/studentts.js";
 
 export const getAllStudents = asyncHandler(async (req, res, next) => {
   const { search, country, plans, page = 1, limit = 10, active } = req.query;
+  console.log(req.query.limit);
+  
+
 
   const where = {};
   if (search) {
@@ -34,7 +37,7 @@ export const getAllStudents = asyncHandler(async (req, res, next) => {
     where.active = active === "true";
   }
 
-  const [{ items: students, pagination }, totalCount, activeCount] =
+  const [{ items: students, pagination }, totalCount, activeCount,unpaidCount] =
     await Promise.all([
       db.findManyWithPaginationAndCount({
         model: "student",
@@ -57,6 +60,7 @@ export const getAllStudents = asyncHandler(async (req, res, next) => {
       }),
       db.count({ model: "student" }),
       db.count({ model: "student", where: { active: true } }),
+      db.count({ model: "student", where: { paid: studentPaidStatus.Unpaid } }),
     ]);
 
   const studentsData = await Promise.all(
@@ -80,13 +84,14 @@ export const getAllStudents = asyncHandler(async (req, res, next) => {
       pagination,
       totalCount,
       activeCount,
+      unpaidCount,
       inactiveCount: totalCount - activeCount,
     },
     status: 200,
   });
 });
 
-export const getStudentsStats = asyncHandler(async (req, res, next) => {
+/* export const getStudentsStats = asyncHandler(async (req, res, next) => {
   const [totalCount, activeCount,unpaidCount] = await Promise.all([
     db.count({ model: "student" }),
     db.count({ model: "student", where: { active: true } }),
@@ -105,7 +110,7 @@ export const getStudentsStats = asyncHandler(async (req, res, next) => {
     },
     status: 200,
   });
-});
+}); */
 
 export const createStudent = asyncHandler(async (req, res, next) => {
   const {
@@ -123,10 +128,11 @@ export const createStudent = asyncHandler(async (req, res, next) => {
     timezone,
     age,
     city,
+    paid,
   } = req.body;
 
   let checkPlan;
-  console.log(planId);
+
 
   const [checkUserByEmail, studentRole] = await Promise.all([
     db.findOne({ model: "user", where: { email } }),
@@ -161,7 +167,6 @@ export const createStudent = asyncHandler(async (req, res, next) => {
       message: "EMAIL_EXISTS",
       status: 400,
     });
-  console.log(checkPlan);
 
   const encryptedPassword = encryptPassword({ password });
 
@@ -215,6 +220,7 @@ export const createStudent = asyncHandler(async (req, res, next) => {
         sessions: checkPlan?.sessionsCount || 0,
         sessions_attended: 0,
         sessions_remaining: checkPlan?.sessionsCount || 0,
+        paid
       },
     });
 

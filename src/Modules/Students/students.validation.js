@@ -3,6 +3,7 @@ import {
   generalFeilds,
   validateInternationalPhoneLength,
 } from "../../Utils/GeneralFields/index.js";
+import { studentPaidStatus } from "../../Utils/Enums/studentts.js";
 
 export const createStudentSchema = {
   body: Joi.object()
@@ -27,6 +28,7 @@ export const createStudentSchema = {
       timezone: Joi.string().optional(),
       city: generalFeilds.city.optional(),
       age: generalFeilds.age.optional(),
+      paid: Joi.string().valid(...Object.values(studentPaidStatus)).required(),
     })
     .custom(
       validateInternationalPhoneLength({

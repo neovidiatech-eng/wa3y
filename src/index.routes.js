@@ -1,6 +1,5 @@
-import { Router } from "express";
+import express, { Router } from "express";
 import path from "node:path";
-import express from "express";
 
 // Router imports
 import authRouter from "./Modules/Authentication/auth.routes.js";
@@ -65,3 +64,4 @@ rootRouter.get("/", (req, res) => {
 });
 
 export default rootRouter;
+

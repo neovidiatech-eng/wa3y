@@ -10,7 +10,7 @@ import {
   encryptPassword,
   encryptText,
 } from "../../../Utils/Security/index.js";
-import { redis } from "../../../Utils/Radis/Connection.js";
+import { redis } from "../../../Utils/Redis/Connection.js";
 import { rbacCache } from "../../../Utils/RBAC/cache.js";
 
 export const getAllStuff = asyncHandler(async (req, res, next) => {

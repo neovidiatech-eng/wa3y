@@ -1,6 +1,6 @@
 import { googleVerify } from "../../Utils/GoogleClient/index.js";
 import sendEmailEvent from "../../Utils/Mailer/sendEmailEvent.js";
-import { redis } from "../../Utils/Radis/Connection.js";
+import { redis } from "../../Utils/Redis/Connection.js";
 import * as db from "../../database/dbService.js";
 import { createAdminNotification } from "../Notifications/notifications.controller.js";
 

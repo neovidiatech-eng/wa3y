@@ -1,39 +1,22 @@
 import express from "express";
-import swaggerUi from "swagger-ui-express";
 import cors from "cors";
 import morgan from "morgan";
-import path from "node:path";
+import { Server } from "socket.io";
+import { createAdapter } from "@socket.io/redis-adapter";
 
+import rootRouter from "./index.routes.js";
 import { globalErrorHandling } from "./Utils/Response.js";
 import { langMiddleware } from "./Middlewares/i18n.js";
 import { timezoneMiddleware } from "./Middlewares/Timezone.js";
 import { globalRateLimiter } from "./Middlewares/RateLimiter.js";
-import fs from "node:fs";
-import {
-  notificationQueue,
-  redis,
-  redisConnection,
-} from "./Utils/Radis/Connection.js";
-import rootRouter from "./index.routes.js";
-import { Server } from "socket.io";
+import { redis, redisConnection } from "./Utils/Redis/Connection.js";
 import { init_io } from "./Utils/Socket/index.js";
 import { socketAuthentication } from "./Middlewares/SocketAuth.js";
-import { createAdapter } from "@socket.io/redis-adapter";
 
 const bootstrap = async () => {
   const app = express();
   app.set("trust proxy", 1);
   const port = process.env.PORT || 3009;
-
-  // ── ENV DEBUG DUMP (remove after confirming env vars are correct) ──
-
-  // ─────────────────────────────────────────────────────────────────
-  /*   const allJobs = await notificationQueue.getJobs([
-    "waiting",
-    "active",
-    "delayed",
-  ]);
-  console.log("All jobs:", allJobs); */
 
   const allowedOrigins = process.env.CORS_ORIGINS
     ? process.env.CORS_ORIGINS.split(",").map((o) => o.trim())
@@ -61,12 +44,13 @@ const bootstrap = async () => {
   app.use(langMiddleware); // Detect language for all requests
   app.use(timezoneMiddleware); // Detect timezone for all requests
   app.use(globalRateLimiter); // Apply global rate limiting to all requests
+
   await redisConnection();
 
   // Root Router
   app.use(rootRouter);
 
-
+  // Global Error Handling Middleware
   app.use(globalErrorHandling);
 
   const apphttp = app.listen(port, () => {
@@ -91,4 +75,6 @@ const bootstrap = async () => {
 
   init_io(io);
 };
+
 export default bootstrap;
+

@@ -126,8 +126,8 @@ export const findManyWithPaginationAndCount = async ({
 }) => {
   const client = getClient(model);
 
-  const take = Math.min(Math.max(Number(limit) || 20, 1), 50);
-  const p = Math.max(Number(page) || 1, 1);
+  const take = Number(limit) || 20;
+  const p = Number(page) || 1;
   const skip = (p - 1) * take;
 
   const [items, totalItems] = await Promise.all([
@@ -246,4 +246,3 @@ export const groupBy = ({
     ...(_max ? { _max } : {}),
   });
 };
-

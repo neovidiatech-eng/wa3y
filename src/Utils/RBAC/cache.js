@@ -1,4 +1,4 @@
-import { redis } from "../Radis/Connection.js";
+import { redis } from "../Redis/Connection.js";
 import * as db from "../../database/dbService.js";
 
 const CACHE_TTL = 3600; // Cache permissions for 1 hour

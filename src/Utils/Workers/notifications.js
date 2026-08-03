@@ -1,4 +1,4 @@
-import { connection, notificationQueue } from "../Radis/Connection.js";
+import { connection, notificationQueue } from "../Redis/Connection.js";
 import { Worker } from "bullmq";
 import * as db from "../../database/dbService.js";
 import { sendEmail } from "../Mailer/SendEmail.js";
@@ -26,13 +26,13 @@ export const addNotificationJob = async ({
   type,
   sendAt,
 }) => {
-  const job = await notificationQueue.add(
+  await notificationQueue.add(
     "send-notification",
     { scheduleId, studentId, type },
     {
-      jobId: scheduleId, // استخدام ID الجدول كـ ID للـ Job لسهولة المسح
+      jobId: scheduleId,
       delay: Math.max(0, sendAt - new Date()),
-    }, // الفارق بالمللي ثانية
+    },
   );
 };
 

@@ -560,9 +560,7 @@ model Setting {
   id               String   @id @default(uuid())
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
-  discounts        Json?
   paidSessionCount Int?     @default(3) @map("paid_session_count")
-  discountType     String?  @default("late") @map("discount_type")
   studentCanJoin Boolean? @default(false) @map("student_can_join")
 }
 

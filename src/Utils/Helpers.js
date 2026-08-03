@@ -1,5 +1,13 @@
 import * as db from "../database/dbService.js";
 import { errorResponse } from "./Response.js";
+import {
+  standardizeDate,
+  toUTC,
+  getDatesBetweenUTC,
+  combineDateAndTime,
+  formatSchedules,
+} from "./Date/time.js";
+
 export const destructData = ({ body, allowed }) => {
   return Object.keys(body).reduce((acc, key) => {
     if (allowed.includes(key)) {
@@ -42,14 +50,6 @@ export const checkConflict = async ({ model, where, next }) => {
 
   return existing;
 };
-
-import {
-  standardizeDate,
-  toUTC,
-  getDatesBetweenUTC,
-  combineDateAndTime,
-  formatSchedules,
-} from "./Date/time.js";
 
 export const getEndTime = ({ startTime, duration = 0, tz }) => {
   const start = toUTC(startTime, tz);

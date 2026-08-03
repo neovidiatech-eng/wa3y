@@ -27,13 +27,13 @@ router.patch(
   studentController.updateStudentPlan,
 );
 
-router.get(
+/* router.get(
   "/stats",
   authentication(),
   authorizeResource("students"),
   studentController.getStudentsStats,
 );
-
+ */
 router.post(
   "/create",
   authentication(),

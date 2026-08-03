@@ -1,7 +1,7 @@
 import { asyncHandler } from "../Utils/Response.js";
 import { verifyToken } from "../Utils/Token/token.js";
 import * as db from "../database/dbService.js";
-import { redis } from "../Utils/Radis/Connection.js";
+import { redis } from "../Utils/Redis/Connection.js";
 
 export const authentication = () => {
   return asyncHandler(async (req, res, next) => {

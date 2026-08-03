@@ -4,7 +4,7 @@ import {
   successResponse,
 } from "../../../Utils/Response.js";
 import * as db from "../../../database/dbService.js";
-import { redis } from "../../../Utils/Radis/Connection.js";
+import { redis } from "../../../Utils/Redis/Connection.js";
 import { decryptUserSensitiveFields } from "../../../Utils/Security/index.js";
 import { ensureExists } from "../../../database/genericService.js";
 import { rbacCache } from "../../../Utils/RBAC/cache.js";
@@ -56,7 +56,7 @@ export const getSubscriptionRequests = asyncHandler(async (req, res, next) => {
 
 export const changeStatus = asyncHandler(async (req, res, next) => {
   const { id } = req.params;
-  const { status } = req.body;
+  const { status,paid } = req.body;
 
   const subscriptionRequest = await ensureExists({
     model: "subscription_requests",
@@ -157,6 +157,7 @@ export const changeStatus = asyncHandler(async (req, res, next) => {
           sessions_remaining:
             subscriptionRequest.plan?.sessionsCount || 0,
           status: "approved",
+          paid,
           active: true,
         },
       });

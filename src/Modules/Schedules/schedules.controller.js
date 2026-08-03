@@ -1913,11 +1913,9 @@ export const joinSession = asyncHandler(async (req, res, next) => {
     updateData.joinTime_student = nowUTC;
   } else if (role === "teacher") {
     updateData.joinTime_teacher = nowUTC;
-    const settings = await getSettingsData();
-    const rules = settings.lateDiscountRules || [];
     const diffMinutes =
       (nowUTC.getTime() - session.start_time.getTime()) / (60 * 1000);
-    const isLate = rules.some((r) => diffMinutes >= r.lateMinutes);
+    const isLate = diffMinutes > 0;
     if (isLate) {
       updateData.isTeacherLate = true;
       // Notify Admin
