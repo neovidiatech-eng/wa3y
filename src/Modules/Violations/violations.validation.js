@@ -42,9 +42,16 @@ export const issueTeacherViolationSchema = {
   }),
 };
 
+export const getAuthTeacherViolationsSchema = {
+  query: Joi.object({
+    type: Joi.string().valid("warning", "penalty").optional(),
+    page: Joi.number().min(1).default(1),
+    limit: Joi.number().min(1).default(10),
+  }),
+};
+
 export const getTeacherViolationsSchema = {
   query: Joi.object({
-    teacherId: generalFeilds.id.optional(),
     type: Joi.string().valid("warning", "penalty").optional(),
     page: Joi.number().min(1).default(1),
     limit: Joi.number().min(1).default(10),

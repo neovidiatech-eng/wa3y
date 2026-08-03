@@ -200,5 +200,6 @@ export const PERMISSIONS_V2 = {
     READ: "violations:read",
     CREATE: "violations:create",
     MANAGE: "violations:manage",
+    
   },
 };

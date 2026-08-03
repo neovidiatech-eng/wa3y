@@ -273,3 +273,58 @@ export const getTeacherViolations = asyncHandler(async (req, res, next) => {
     data: { violations, pagination },
   });
 });
+export const getAuthUserViolations = asyncHandler(async (req, res, next) => {
+  const {  type, page = 1, limit = 10 } = req.query;
+  const userId = req.user.id;
+
+  
+  if (req.user.role.name !== "teacher") {
+
+    return errorResponse({
+      req,
+      next,
+      status: 403,
+      message: "FORBIDDEN",
+    });
+
+    
+  }
+  const user = await db.findOne({
+    model: "user",
+    where: { id: userId},
+    include: { teacher: true },
+  });
+  if (!user?.teacher) {
+    return errorResponse({
+      req,
+      next,
+      status: 404,
+      message: "USER_NOT_FOUND",
+    });
+  }
+  const where = {teacherId:user.teacher.id};
+  if (type) where.type = type;
+
+  const { items: violations, pagination } =
+    await db.findManyWithPaginationAndCount({
+      model: "TeacherViolation",
+      where,
+      page,
+      limit,
+      orderBy: { createdAt: "desc" },
+      include: {
+        teacher: { include: { user: { select: { name: true, email: true } } } },
+        supervisor: { select: { id: true, name: true, email: true } },
+        schedule: { select: { id: true, title: true, start_time: true } },
+        infractionItem: true,
+      },
+    });
+
+  return successResponse({
+    res,
+    req,
+    status: 200,
+    message: "FETCH_SUCCESS",
+    data: { violations, pagination },
+  });
+});

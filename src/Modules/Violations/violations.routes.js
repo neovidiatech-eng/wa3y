@@ -56,5 +56,11 @@ router.get(
   validation(violationsValidation.getTeacherViolationsSchema),
   violationsController.getTeacherViolations
 );
+router.get(
+  "/me",
+  authentication(),
+  validation(violationsValidation.getAuthTeacherViolationsSchema),
+  violationsController.getAuthUserViolations
+);
 
 export default router;
