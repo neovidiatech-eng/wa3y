@@ -53,6 +53,7 @@ export const getAuthTeacherViolationsSchema = {
 export const getTeacherViolationsSchema = {
   query: Joi.object({
     type: Joi.string().valid("warning", "penalty").optional(),
+    teacherId:generalFeilds.id.required(),
     page: Joi.number().min(1).default(1),
     limit: Joi.number().min(1).default(10),
   }),
