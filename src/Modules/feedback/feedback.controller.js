@@ -10,15 +10,26 @@ export const getFeedback = asyncHandler(async (req, res, next) => {
   const {page,limit,search}=req.query;
   const where={}
 
-  if(search){
-    where.OR=[{
-      comment:{
-        contains:search,
-        mode:'insensitive'
-      }
-    }]
-
-  }
+ if (search) {
+  where.OR = [
+    {
+      reviewee: {
+        name: {
+          contains: search,
+          mode: "insensitive",
+        },
+      },
+    },
+    {
+      reviewer: {
+        name: {
+          contains: search,
+          mode: "insensitive",
+        },
+      },
+    },
+  ];
+}
 
   const feedbacks = await db.findManyWithPaginationAndCount({
     model: "Review",
