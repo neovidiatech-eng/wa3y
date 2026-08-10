@@ -1,3 +1,4 @@
+
 import {
   asyncHandler,
   errorResponse,
@@ -250,12 +251,19 @@ export const getDashboard = asyncHandler(async (req, res, next) => {
   const startOfDay = now.startOf("day").utc().toDate();
   const endOfDay = now.endOf("day").utc().toDate();
   const sevenDaysAgo = now.subtract(7, "day").startOf("day").utc().toDate();
+  const startOfMonth = now.startOf("month").utc().toDate();
+  const endOfMonth = now.endOf("month").utc().toDate();
 
   const [
     studentsCount,
     teachersCount,
+    stuffCount,
+    parentsCount,
     pendingRequestsCount,
     todaySessionsCount,
+    totalRevenueAgg,
+    monthlyRevenueAgg,
+    allSubscriptions,
     upcomingSessions,
     lastSevenDaysSessions,
     recentRequests,
@@ -264,19 +272,69 @@ export const getDashboard = asyncHandler(async (req, res, next) => {
   ] = await Promise.all([
     db.count({ model: "student" }),
     db.count({ model: "teacher" }),
+    db.count({ model: "stuff" }),
+    db.count({
+      model: "user",
+      where: {
+        OR: [
+          { parentStudents: { some: {} } },
+          { role: { name: { equals: "parent", mode: "insensitive" } } },
+        ],
+      },
+    }),
     db.count({ model: "session_request", where: { status: "pending" } }),
     db.count({
       model: "schedule",
       where: { start_time: { gte: startOfDay, lte: endOfDay } },
     }),
 
-    // Upcoming Sessions
+    // Total Revenue (all-time completed revenue)
+    db.aggregate({
+      model: "transaction",
+      where: {
+        status: "completed",
+        type: { in: ["subscription", "credit"] },
+      },
+      _sum: { amount: true },
+    }),
+
+    // Monthly Revenue (current month completed revenue)
+    db.aggregate({
+      model: "transaction",
+      where: {
+        status: "completed",
+        type: { in: ["subscription", "credit"] },
+        createdAt: {
+          gte: startOfMonth,
+          lte: endOfMonth,
+        },
+      },
+      _sum: { amount: true },
+    }),
+
+    // All Subscriptions to analyze statuses
+    db.findMany({
+      model: "Subscription",
+      include: {
+        plan: { select: { name_en: true, name_ar: true, duration: true } },
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            student: { select: { sessions_remaining: true } },
+          },
+        },
+      },
+    }),
+
+    // Upcoming Sessions (Today only)
     db.findMany({
       model: "schedule",
       where: {
-        start_time: { gte: now.toDate() },
+        start_time: { gte: startOfDay, lte: endOfDay },
+        status: { not: "cancelled" },
       },
-      take: 5,
       orderBy: { start_time: "asc" },
       include: {
         subject: true,
@@ -284,7 +342,6 @@ export const getDashboard = asyncHandler(async (req, res, next) => {
         student: { include: { user: true } },
       },
     }),
-    
 
     // Sessions for last 7 days
     db.findMany({
@@ -314,6 +371,49 @@ export const getDashboard = asyncHandler(async (req, res, next) => {
     }),
   ]);
 
+  const totalRevenue = Number((totalRevenueAgg?._sum?.amount || 0).toFixed(2));
+  const monthlyRevenue = Number((monthlyRevenueAgg?._sum?.amount || 0).toFixed(2));
+
+  // Analyze Subscription Statuses & Collect Expiring Subscriptions (<= 7 days)
+  let activeSubscriptionsCount = 0;
+  let expiringSoonSubscriptionsCount = 0;
+  let expiredSubscriptionsCount = 0;
+  const expiringSoonSubscriptionsList = [];
+
+  for (const sub of allSubscriptions) {
+    const durationDays = sub.plan?.duration || 30;
+    const startDate = dayjs(sub.startDate || sub.createdAt);
+    const endDate = startDate.add(durationDays, "day");
+    const daysLeft = endDate.diff(now, "day");
+    const sessionsRemaining = sub.user?.student?.sessions_remaining ?? 0;
+    const planName = sub.plan?.name_en || sub.plan?.name_ar || "Plan";
+    const userName = sub.user?.name || "Student";
+
+    if (sub.status === "expired" || daysLeft <= 0 || sessionsRemaining <= 0) {
+      expiredSubscriptionsCount++;
+    } else if (daysLeft <= 7 || sessionsRemaining <= 2) {
+      expiringSoonSubscriptionsCount++;
+      expiringSoonSubscriptionsList.push({
+        id: sub.id,
+        userName,
+        planName,
+        daysLeft,
+        sessionsRemaining,
+        endDate: endDate.toDate(),
+      });
+    } else if (sub.status === "active") {
+      activeSubscriptionsCount++;
+    } else {
+      expiredSubscriptionsCount++;
+    }
+  }
+
+  const subscriptionsStatus = {
+    active: activeSubscriptionsCount,
+    expiringSoon: expiringSoonSubscriptionsCount,
+    expired: expiredSubscriptionsCount,
+  };
+
   // Process Sessions per Day
   const sessionsPerDay = [];
   for (let i = 6; i >= 0; i--) {
@@ -324,7 +424,7 @@ export const getDashboard = asyncHandler(async (req, res, next) => {
     sessionsPerDay.push({ date, count });
   }
 
-  // Combine Activity Feed
+  // Combine Activity Feed (including expiring subscriptions within 7 days)
   const activityFeed = [
     ...recentRequests.map((r) => ({
       id: r.id,
@@ -350,6 +450,16 @@ export const getDashboard = asyncHandler(async (req, res, next) => {
       user: t.user?.name || "Teacher",
       avatar: null,
     })),
+    ...expiringSoonSubscriptionsList.map((sub) => ({
+      id: sub.id,
+      type: "subscription_expiring",
+      title: `Subscription for ${sub.userName} (${sub.planName}) will expire in ${sub.daysLeft} day(s)`,
+      time: sub.endDate,
+      user: sub.userName,
+      daysLeft: sub.daysLeft,
+      sessionsRemaining: sub.sessionsRemaining,
+      avatar: null,
+    })),
   ]
     .sort((a, b) => new Date(b.time) - new Date(a.time))
     .slice(0, 10);
@@ -363,7 +473,11 @@ export const getDashboard = asyncHandler(async (req, res, next) => {
         totalTeachers: teachersCount,
         pendingRequests: pendingRequestsCount,
         todaySessions: todaySessionsCount,
+        totalRevenue,
+        monthlyRevenue,
+        subscriptions: subscriptionsStatus,
       },
+      subscriptionsStatus,
       sessionsPerDay,
       upcomingSessions: upcomingSessions.map((s) => ({
         id: s.id,
@@ -376,8 +490,10 @@ export const getDashboard = asyncHandler(async (req, res, next) => {
       })),
       activityFeed,
       activeUsers: {
-        students: studentsCount, // Simplified for now
+        students: studentsCount,
         instructors: teachersCount,
+        admins: stuffCount,
+        parents: parentsCount,
       },
     },
     status: 200,
