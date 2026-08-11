@@ -415,10 +415,10 @@ export const getDashboard = asyncHandler(async (req, res, next) => {
   const activityFeed = expiringSoonSubscriptionsList
     .map((sub) => {
       let title = "";
-      if (sub.daysLeft >= 0 && sub.daysLeft <= 7) {
-        title = `Subscription for ${sub.userName} (${sub.planName}) will expire in ${sub.daysLeft} day(s)`;
-      } else if (sub.sessionsRemaining <= 2 && sub.sessionsRemaining > 0) {
+      if (sub.sessionsRemaining <= 2 && sub.sessionsRemaining > 0) {
         title = `Subscription for ${sub.userName} (${sub.planName}) has ${sub.sessionsRemaining} session(s) remaining`;
+      } else if (sub.daysLeft > 0 && sub.daysLeft <= 7) {
+        title = `Subscription for ${sub.userName} (${sub.planName}) will expire in ${sub.daysLeft} day(s)`;
       } else {
         title = `Subscription for ${sub.userName} (${sub.planName}) is expiring soon`;
       }
