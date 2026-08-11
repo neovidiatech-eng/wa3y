@@ -401,19 +401,30 @@ export const getDashboard = asyncHandler(async (req, res, next) => {
     sessionsPerDay.push({ date, count });
   }
 
-  // Activity Feed (ONLY expiring subscriptions within 7 days)
+  // Activity Feed (ONLY expiring subscriptions within 7 days OR <= 2 sessions remaining)
   const activityFeed = expiringSoonSubscriptionsList
-    .map((sub) => ({
-      id: sub.id,
-      type: "subscription_expiring",
-      title: `Subscription for ${sub.userName} (${sub.planName}) will expire in ${sub.daysLeft} day(s)`,
-      time: sub.endDate,
-      user: sub.userName,
-      daysLeft: sub.daysLeft,
-      sessionsRemaining: sub.sessionsRemaining,
-      avatar: null,
-    }))
-    .sort((a, b) => new Date(a.time) - new Date(b.time));
+    .map((sub) => {
+      let title = "";
+      if (sub.daysLeft >= 0 && sub.daysLeft <= 7) {
+        title = `Subscription for ${sub.userName} (${sub.planName}) will expire in ${sub.daysLeft} day(s)`;
+      } else if (sub.sessionsRemaining <= 2 && sub.sessionsRemaining > 0) {
+        title = `Subscription for ${sub.userName} (${sub.planName}) has ${sub.sessionsRemaining} session(s) remaining`;
+      } else {
+        title = `Subscription for ${sub.userName} (${sub.planName}) is expiring soon`;
+      }
+
+      return {
+        id: sub.id,
+        type: "subscription_expiring",
+        title,
+        time: sub.endDate,
+        user: sub.userName,
+        daysLeft: sub.daysLeft,
+        sessionsRemaining: sub.sessionsRemaining,
+        avatar: null,
+      };
+    })
+    .sort((a, b) => new Date(a.time) - new Date(a.time));
 
   return successResponse({
     res,
