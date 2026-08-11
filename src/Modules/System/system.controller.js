@@ -365,15 +365,19 @@ export const getDashboard = asyncHandler(async (req, res, next) => {
     const startDate = dayjs(sub?.startDate || sub?.createdAt || student.createdAt);
     const endDate = startDate.add(durationDays, "day");
     const daysLeft = endDate.diff(now, "day");
-    const sessionsRemaining = student.sessions_remaining ?? 0;
+    const sessionsRemaining = Number(student.sessions_remaining ?? 0);
     const planName = student.plan?.name_en || student.plan?.name_ar || sub?.plan?.name_en || "Plan";
     const userName = student.user?.name || "Student";
 
-    const isExpiredStatus = sub?.status === "expired" || student.active === false;
+    // Expiring soon: remaining sessions is 1 or 2, OR remaining days is 7 or fewer (with active sessions)
+    const isExpiringSoon =
+      (sessionsRemaining > 0 && sessionsRemaining <= 2) ||
+      (sessionsRemaining > 0 && daysLeft >= 0 && daysLeft <= 7);
 
-    if (isExpiredStatus || sessionsRemaining <= 0) {
-      expiredSubscriptionsCount++;
-    } else if (sessionsRemaining <= 2 || (daysLeft >= 0 && daysLeft <= 7)) {
+    const isExpired =
+      sub?.status === "expired" || student.status === "rejected" || sessionsRemaining <= 0;
+
+    if (isExpiringSoon) {
       expiringSoonSubscriptionsCount++;
       expiringSoonSubscriptionsList.push({
         id: student.id,
@@ -383,6 +387,8 @@ export const getDashboard = asyncHandler(async (req, res, next) => {
         sessionsRemaining,
         endDate: endDate.toDate(),
       });
+    } else if (isExpired) {
+      expiredSubscriptionsCount++;
     } else {
       activeSubscriptionsCount++;
     }
