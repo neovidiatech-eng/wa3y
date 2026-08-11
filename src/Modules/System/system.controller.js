@@ -309,19 +309,21 @@ export const getDashboard = asyncHandler(async (req, res, next) => {
       _sum: { amount: true },
     }),
 
-    // All Subscriptions to analyze statuses
+    // All Students with plans to analyze session counts & statuses
+    db.findMany({
+      model: "student",
+      include: {
+        plan: { select: { name_en: true, name_ar: true, duration: true } },
+        user: { select: { id: true, name: true, email: true } },
+      },
+    }),
+
+    // All Subscriptions to analyze subscription dates
     db.findMany({
       model: "Subscription",
       include: {
         plan: { select: { name_en: true, name_ar: true, duration: true } },
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            student: { select: { sessions_remaining: true } },
-          },
-        },
+        user: { select: { id: true, name: true, email: true } },
       },
     }),
 
@@ -351,37 +353,38 @@ export const getDashboard = asyncHandler(async (req, res, next) => {
   const totalRevenue = Number((totalRevenueAgg?._sum?.amount || 0).toFixed(2));
   const monthlyRevenue = Number((monthlyRevenueAgg?._sum?.amount || 0).toFixed(2));
 
-  // Analyze Subscription Statuses & Collect Expiring Subscriptions (<= 7 days)
+  // Analyze Student Subscriptions & Session Counts (<= 2 sessions remaining OR <= 7 days left)
   let activeSubscriptionsCount = 0;
   let expiringSoonSubscriptionsCount = 0;
   let expiredSubscriptionsCount = 0;
   const expiringSoonSubscriptionsList = [];
 
-  for (const sub of allSubscriptions) {
-    const durationDays = sub.plan?.duration || 30;
-    const startDate = dayjs(sub.startDate || sub.createdAt);
+  for (const student of allStudents) {
+    const sub = allSubscriptions.find((s) => s.userId === student.user_id);
+    const durationDays = student.plan?.duration || sub?.plan?.duration || 30;
+    const startDate = dayjs(sub?.startDate || sub?.createdAt || student.createdAt);
     const endDate = startDate.add(durationDays, "day");
     const daysLeft = endDate.diff(now, "day");
-    const sessionsRemaining = sub.user?.student?.sessions_remaining ?? 0;
-    const planName = sub.plan?.name_en || sub.plan?.name_ar || "Plan";
-    const userName = sub.user?.name || "Student";
+    const sessionsRemaining = student.sessions_remaining ?? 0;
+    const planName = student.plan?.name_en || student.plan?.name_ar || sub?.plan?.name_en || "Plan";
+    const userName = student.user?.name || "Student";
 
-    if (sub.status === "expired" || daysLeft <= 0 || sessionsRemaining <= 0) {
+    const isExpiredStatus = sub?.status === "expired" || student.active === false;
+
+    if (isExpiredStatus || sessionsRemaining <= 0) {
       expiredSubscriptionsCount++;
-    } else if (daysLeft <= 7 || sessionsRemaining <= 2) {
+    } else if (sessionsRemaining <= 2 || (daysLeft >= 0 && daysLeft <= 7)) {
       expiringSoonSubscriptionsCount++;
       expiringSoonSubscriptionsList.push({
-        id: sub.id,
+        id: student.id,
         userName,
         planName,
-        daysLeft,
+        daysLeft: Math.max(0, daysLeft),
         sessionsRemaining,
         endDate: endDate.toDate(),
       });
-    } else if (sub.status === "active") {
-      activeSubscriptionsCount++;
     } else {
-      expiredSubscriptionsCount++;
+      activeSubscriptionsCount++;
     }
   }
 
