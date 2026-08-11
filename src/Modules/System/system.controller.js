@@ -266,9 +266,6 @@ export const getDashboard = asyncHandler(async (req, res, next) => {
     allSubscriptions,
     upcomingSessions,
     lastSevenDaysSessions,
-    recentRequests,
-    recentReviews,
-    newTeachers,
   ] = await Promise.all([
     db.count({ model: "student" }),
     db.count({ model: "teacher" }),
@@ -349,26 +346,6 @@ export const getDashboard = asyncHandler(async (req, res, next) => {
       where: { start_time: { gte: sevenDaysAgo } },
       select: { start_time: true },
     }),
-
-    // Activity Feed Sources
-    db.findMany({
-      model: "session_request",
-      take: 5,
-      orderBy: { createdAt: "desc" },
-      include: { requester: true },
-    }),
-    db.findMany({
-      model: "Review",
-      take: 5,
-      orderBy: { createdAt: "desc" },
-      include: { reviewer: true, reviewee: true },
-    }),
-    db.findMany({
-      model: "teacher",
-      take: 5,
-      orderBy: { createdAt: "desc" },
-      include: { user: true },
-    }),
   ]);
 
   const totalRevenue = Number((totalRevenueAgg?._sum?.amount || 0).toFixed(2));
@@ -424,33 +401,9 @@ export const getDashboard = asyncHandler(async (req, res, next) => {
     sessionsPerDay.push({ date, count });
   }
 
-  // Combine Activity Feed (including expiring subscriptions within 7 days)
-  const activityFeed = [
-    ...recentRequests.map((r) => ({
-      id: r.id,
-      type: "request",
-      title: `${r.requester?.name || "Someone"} requested a ${r.type}`,
-      time: r.createdAt,
-      user: r.requester?.name || "Someone",
-      avatar: null,
-    })),
-    ...recentReviews.map((rv) => ({
-      id: rv.id,
-      type: "review",
-      title: `Session completed with ${rv.reviewee?.name || "Teacher"}: "${rv.comment || ""}"`,
-      time: rv.createdAt,
-      user: rv.reviewer?.name || "Student",
-      avatar: null,
-    })),
-    ...newTeachers.map((t) => ({
-      id: t.id,
-      type: "onboarding",
-      title: `New Instructor Onboarded: ${t.user?.name || "Teacher"}`,
-      time: t.createdAt,
-      user: t.user?.name || "Teacher",
-      avatar: null,
-    })),
-    ...expiringSoonSubscriptionsList.map((sub) => ({
+  // Activity Feed (ONLY expiring subscriptions within 7 days)
+  const activityFeed = expiringSoonSubscriptionsList
+    .map((sub) => ({
       id: sub.id,
       type: "subscription_expiring",
       title: `Subscription for ${sub.userName} (${sub.planName}) will expire in ${sub.daysLeft} day(s)`,
@@ -459,10 +412,8 @@ export const getDashboard = asyncHandler(async (req, res, next) => {
       daysLeft: sub.daysLeft,
       sessionsRemaining: sub.sessionsRemaining,
       avatar: null,
-    })),
-  ]
-    .sort((a, b) => new Date(b.time) - new Date(a.time))
-    .slice(0, 10);
+    }))
+    .sort((a, b) => new Date(a.time) - new Date(b.time));
 
   return successResponse({
     res,
