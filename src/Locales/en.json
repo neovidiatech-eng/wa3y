@@ -421,5 +421,8 @@
   "NOTIFICATION_NEW_QURAN_RECITATION_MSG": "A new recitation task has been assigned: Surah {{surah}} (Pages {{startPage}} to {{endPage}})",
   "NOTIFICATION_RECITATION_STATUS_UPDATED_TITLE": "Quran Recitation Status Updated",
   "NOTIFICATION_RECITATION_STATUS_UPDATED_MSG": "Student updated the status of Surah {{surah}} recitation to {{status}}",
-  "RECITATION_NOT_FOUND": "Quran recitation not found"
+  "RECITATION_NOT_FOUND": "Quran recitation not found",
+  "SUBSCRIPTION_EXPIRING_SESSIONS": "Subscription for {{user}} ({{plan}}) has {{sessions}} session(s) remaining",
+  "SUBSCRIPTION_EXPIRING_DAYS": "Subscription for {{user}} ({{plan}}) will expire in {{days}} day(s)",
+  "SUBSCRIPTION_EXPIRING_GENERIC": "Subscription for {{user}} ({{plan}}) is expiring soon"
 }

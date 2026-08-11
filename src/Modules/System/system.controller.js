@@ -367,7 +367,10 @@ export const getDashboard = asyncHandler(async (req, res, next) => {
     const endDate = startDate.add(durationDays, "day");
     const daysLeft = endDate.diff(now, "day");
     const sessionsRemaining = Number(student.sessions_remaining ?? 0);
-    const planName = student.plan?.name_en || student.plan?.name_ar || sub?.plan?.name_en || "Plan";
+    const planName =
+      req.lang === "ar"
+        ? student.plan?.name_ar || sub?.plan?.name_ar || student.plan?.name_en || "الخطة"
+        : student.plan?.name_en || sub?.plan?.name_en || student.plan?.name_ar || "Plan";
     const userName = student.user?.name || "Student";
 
     // Expiring soon: remaining sessions is 1 or 2, OR remaining days is 7 or fewer (with active sessions)
@@ -416,11 +419,28 @@ export const getDashboard = asyncHandler(async (req, res, next) => {
     .map((sub) => {
       let title = "";
       if (sub.sessionsRemaining <= 2 && sub.sessionsRemaining > 0) {
-        title = `Subscription for ${sub.userName} (${sub.planName}) has ${sub.sessionsRemaining} session(s) remaining`;
+        title = req.t
+          ? req.t("SUBSCRIPTION_EXPIRING_SESSIONS", {
+              user: sub.userName,
+              plan: sub.planName,
+              sessions: sub.sessionsRemaining,
+            })
+          : `Subscription for ${sub.userName} (${sub.planName}) has ${sub.sessionsRemaining} session(s) remaining`;
       } else if (sub.daysLeft > 0 && sub.daysLeft <= 7) {
-        title = `Subscription for ${sub.userName} (${sub.planName}) will expire in ${sub.daysLeft} day(s)`;
+        title = req.t
+          ? req.t("SUBSCRIPTION_EXPIRING_DAYS", {
+              user: sub.userName,
+              plan: sub.planName,
+              days: sub.daysLeft,
+            })
+          : `Subscription for ${sub.userName} (${sub.planName}) will expire in ${sub.daysLeft} day(s)`;
       } else {
-        title = `Subscription for ${sub.userName} (${sub.planName}) is expiring soon`;
+        title = req.t
+          ? req.t("SUBSCRIPTION_EXPIRING_GENERIC", {
+              user: sub.userName,
+              plan: sub.planName,
+            })
+          : `Subscription for ${sub.userName} (${sub.planName}) is expiring soon`;
       }
 
       return {
@@ -454,7 +474,10 @@ export const getDashboard = asyncHandler(async (req, res, next) => {
       upcomingSessions: upcomingSessions.map((s) => ({
         id: s.id,
         title: s.title,
-        subject: s.subject?.name_en || "Subject",
+        subject:
+          req.lang === "ar"
+            ? s.subject?.name_ar || s.subject?.name_en || "مادة"
+            : s.subject?.name_en || s.subject?.name_ar || "Subject",
         time: s.start_time,
         ...formatSchedules(s, req.timezone),
         teacher: s.teacher?.user?.name || "Teacher",
