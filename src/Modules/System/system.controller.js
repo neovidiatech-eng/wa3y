@@ -263,6 +263,7 @@ export const getDashboard = asyncHandler(async (req, res, next) => {
     todaySessionsCount,
     totalRevenueAgg,
     monthlyRevenueAgg,
+    allStudents,
     allSubscriptions,
     upcomingSessions,
     lastSevenDaysSessions,
