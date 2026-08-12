@@ -421,5 +421,8 @@
   "NOTIFICATION_NEW_QURAN_RECITATION_MSG": "تم إضافة ورد تلاوة جديد لك: سورة {{surah}} (من صفحة {{startPage}} إلى {{endPage}})",
   "NOTIFICATION_RECITATION_STATUS_UPDATED_TITLE": "تحديث حالة ورد التلاوة",
   "NOTIFICATION_RECITATION_STATUS_UPDATED_MSG": "قام الطالب بتحديث حالة ورد سورة {{surah}} إلى {{status}}",
-  "RECITATION_NOT_FOUND": "ورد التلاوة غير موجود"
+  "RECITATION_NOT_FOUND": "ورد التلاوة غير موجود",
+  "SUBSCRIPTION_EXPIRING_SESSIONS": "اشتراك الطالب {{user}} ({{plan}}) متبقي به {{sessions}} جلسات فقط",
+  "SUBSCRIPTION_EXPIRING_DAYS": "اشتراك الطالب {{user}} ({{plan}}) سينتهي خلال {{days}} أيام",
+  "SUBSCRIPTION_EXPIRING_GENERIC": "اشتراك الطالب {{user}} ({{plan}}) ينتهي قريباً"
 }

@@ -245,3 +245,23 @@ export const groupBy = ({
     ...(_max ? { _max } : {}),
   });
 };
+
+export const aggregate = ({
+  model,
+  where,
+  _count,
+  _sum,
+  _avg,
+  _min,
+  _max,
+}) => {
+  return getClient(model).aggregate({
+    ...(where ? { where } : {}),
+    ...(_count ? { _count } : {}),
+    ...(_sum ? { _sum } : {}),
+    ...(_avg ? { _avg } : {}),
+    ...(_min ? { _min } : {}),
+    ...(_max ? { _max } : {}),
+  });
+};
+

@@ -1,3 +1,4 @@
+
 import {
   asyncHandler,
   errorResponse,
@@ -250,33 +251,90 @@ export const getDashboard = asyncHandler(async (req, res, next) => {
   const startOfDay = now.startOf("day").utc().toDate();
   const endOfDay = now.endOf("day").utc().toDate();
   const sevenDaysAgo = now.subtract(7, "day").startOf("day").utc().toDate();
+  const startOfMonth = now.startOf("month").utc().toDate();
+  const endOfMonth = now.endOf("month").utc().toDate();
 
   const [
     studentsCount,
     teachersCount,
+    stuffCount,
+    parentsCount,
     pendingRequestsCount,
     todaySessionsCount,
+    totalRevenueAgg,
+    monthlyRevenueAgg,
+    allStudents,
+    allSubscriptions,
     upcomingSessions,
     lastSevenDaysSessions,
-    recentRequests,
-    recentReviews,
-    newTeachers,
   ] = await Promise.all([
     db.count({ model: "student" }),
     db.count({ model: "teacher" }),
+    db.count({ model: "stuff" }),
+    db.count({
+      model: "user",
+      where: {
+        OR: [
+          { parentStudents: { some: {} } },
+          { role: { name: { equals: "parent", mode: "insensitive" } } },
+        ],
+      },
+    }),
     db.count({ model: "session_request", where: { status: "pending" } }),
     db.count({
       model: "schedule",
       where: { start_time: { gte: startOfDay, lte: endOfDay } },
     }),
 
-    // Upcoming Sessions
+    // Total Revenue (all-time completed revenue)
+    db.aggregate({
+      model: "transaction",
+      where: {
+        status: "completed",
+        type: { in: ["subscription", "credit"] },
+      },
+      _sum: { amount: true },
+    }),
+
+    // Monthly Revenue (current month completed revenue)
+    db.aggregate({
+      model: "transaction",
+      where: {
+        status: "completed",
+        type: { in: ["subscription", "credit"] },
+        createdAt: {
+          gte: startOfMonth,
+          lte: endOfMonth,
+        },
+      },
+      _sum: { amount: true },
+    }),
+
+    // All Students with plans to analyze session counts & statuses
+    db.findMany({
+      model: "student",
+      include: {
+        plan: { select: { name_en: true, name_ar: true, duration: true } },
+        user: { select: { id: true, name: true, email: true } },
+      },
+    }),
+
+    // All Subscriptions to analyze subscription dates
+    db.findMany({
+      model: "Subscription",
+      include: {
+        plan: { select: { name_en: true, name_ar: true, duration: true } },
+        user: { select: { id: true, name: true, email: true } },
+      },
+    }),
+
+    // Upcoming Sessions (Today only)
     db.findMany({
       model: "schedule",
       where: {
-        start_time: { gte: now.toDate() },
+        start_time: { gte: startOfDay, lte: endOfDay },
+        status: { not: "cancelled" },
       },
-      take: 5,
       orderBy: { start_time: "asc" },
       include: {
         subject: true,
@@ -284,7 +342,6 @@ export const getDashboard = asyncHandler(async (req, res, next) => {
         student: { include: { user: true } },
       },
     }),
-    
 
     // Sessions for last 7 days
     db.findMany({
@@ -292,27 +349,60 @@ export const getDashboard = asyncHandler(async (req, res, next) => {
       where: { start_time: { gte: sevenDaysAgo } },
       select: { start_time: true },
     }),
-
-    // Activity Feed Sources
-    db.findMany({
-      model: "session_request",
-      take: 5,
-      orderBy: { createdAt: "desc" },
-      include: { requester: true },
-    }),
-    db.findMany({
-      model: "Review",
-      take: 5,
-      orderBy: { createdAt: "desc" },
-      include: { reviewer: true, reviewee: true },
-    }),
-    db.findMany({
-      model: "teacher",
-      take: 5,
-      orderBy: { createdAt: "desc" },
-      include: { user: true },
-    }),
   ]);
+
+  const totalRevenue = Number((totalRevenueAgg?._sum?.amount || 0).toFixed(2));
+  const monthlyRevenue = Number((monthlyRevenueAgg?._sum?.amount || 0).toFixed(2));
+
+  // Analyze Student Subscriptions & Session Counts (<= 2 sessions remaining OR <= 7 days left)
+  let activeSubscriptionsCount = 0;
+  let expiringSoonSubscriptionsCount = 0;
+  let expiredSubscriptionsCount = 0;
+  const expiringSoonSubscriptionsList = [];
+
+  for (const student of allStudents) {
+    const sub = allSubscriptions.find((s) => s.userId === student.user_id);
+    const durationDays = student.plan?.duration || sub?.plan?.duration || 30;
+    const startDate = dayjs(sub?.startDate || sub?.createdAt || student.createdAt);
+    const endDate = startDate.add(durationDays, "day");
+    const daysLeft = endDate.diff(now, "day");
+    const sessionsRemaining = Number(student.sessions_remaining ?? 0);
+    const planName =
+      req.lang === "ar"
+        ? student.plan?.name_ar || sub?.plan?.name_ar || student.plan?.name_en || "الخطة"
+        : student.plan?.name_en || sub?.plan?.name_en || student.plan?.name_ar || "Plan";
+    const userName = student.user?.name || "Student";
+
+    // Expiring soon: remaining sessions is 1 or 2, OR remaining days is 7 or fewer (with active sessions)
+    const isExpiringSoon =
+      (sessionsRemaining > 0 && sessionsRemaining <= 2) ||
+      (sessionsRemaining > 0 && daysLeft >= 0 && daysLeft <= 7);
+
+    const isExpired =
+      sub?.status === "expired" || student.status === "rejected" || sessionsRemaining <= 0;
+
+    if (isExpiringSoon) {
+      expiringSoonSubscriptionsCount++;
+      expiringSoonSubscriptionsList.push({
+        id: student.id,
+        userName,
+        planName,
+        daysLeft: Math.max(0, daysLeft),
+        sessionsRemaining,
+        endDate: endDate.toDate(),
+      });
+    } else if (isExpired) {
+      expiredSubscriptionsCount++;
+    } else {
+      activeSubscriptionsCount++;
+    }
+  }
+
+  const subscriptionsStatus = {
+    active: activeSubscriptionsCount,
+    expiringSoon: expiringSoonSubscriptionsCount,
+    expired: expiredSubscriptionsCount,
+  };
 
   // Process Sessions per Day
   const sessionsPerDay = [];
@@ -324,35 +414,47 @@ export const getDashboard = asyncHandler(async (req, res, next) => {
     sessionsPerDay.push({ date, count });
   }
 
-  // Combine Activity Feed
-  const activityFeed = [
-    ...recentRequests.map((r) => ({
-      id: r.id,
-      type: "request",
-      title: `${r.requester?.name || "Someone"} requested a ${r.type}`,
-      time: r.createdAt,
-      user: r.requester?.name || "Someone",
-      avatar: null,
-    })),
-    ...recentReviews.map((rv) => ({
-      id: rv.id,
-      type: "review",
-      title: `Session completed with ${rv.reviewee?.name || "Teacher"}: "${rv.comment || ""}"`,
-      time: rv.createdAt,
-      user: rv.reviewer?.name || "Student",
-      avatar: null,
-    })),
-    ...newTeachers.map((t) => ({
-      id: t.id,
-      type: "onboarding",
-      title: `New Instructor Onboarded: ${t.user?.name || "Teacher"}`,
-      time: t.createdAt,
-      user: t.user?.name || "Teacher",
-      avatar: null,
-    })),
-  ]
-    .sort((a, b) => new Date(b.time) - new Date(a.time))
-    .slice(0, 10);
+  // Activity Feed (ONLY expiring subscriptions within 7 days OR <= 2 sessions remaining)
+  const activityFeed = expiringSoonSubscriptionsList
+    .map((sub) => {
+      let title = "";
+      if (sub.sessionsRemaining <= 2 && sub.sessionsRemaining > 0) {
+        title = req.t
+          ? req.t("SUBSCRIPTION_EXPIRING_SESSIONS", {
+              user: sub.userName,
+              plan: sub.planName,
+              sessions: sub.sessionsRemaining,
+            })
+          : `Subscription for ${sub.userName} (${sub.planName}) has ${sub.sessionsRemaining} session(s) remaining`;
+      } else if (sub.daysLeft > 0 && sub.daysLeft <= 7) {
+        title = req.t
+          ? req.t("SUBSCRIPTION_EXPIRING_DAYS", {
+              user: sub.userName,
+              plan: sub.planName,
+              days: sub.daysLeft,
+            })
+          : `Subscription for ${sub.userName} (${sub.planName}) will expire in ${sub.daysLeft} day(s)`;
+      } else {
+        title = req.t
+          ? req.t("SUBSCRIPTION_EXPIRING_GENERIC", {
+              user: sub.userName,
+              plan: sub.planName,
+            })
+          : `Subscription for ${sub.userName} (${sub.planName}) is expiring soon`;
+      }
+
+      return {
+        id: sub.id,
+        type: "subscription_expiring",
+        title,
+        time: sub.endDate,
+        user: sub.userName,
+        daysLeft: sub.daysLeft,
+        sessionsRemaining: sub.sessionsRemaining,
+        avatar: null,
+      };
+    })
+    .sort((a, b) => new Date(a.time) - new Date(a.time));
 
   return successResponse({
     res,
@@ -363,12 +465,19 @@ export const getDashboard = asyncHandler(async (req, res, next) => {
         totalTeachers: teachersCount,
         pendingRequests: pendingRequestsCount,
         todaySessions: todaySessionsCount,
+        totalRevenue,
+        monthlyRevenue,
+        subscriptions: subscriptionsStatus,
       },
+      subscriptionsStatus,
       sessionsPerDay,
       upcomingSessions: upcomingSessions.map((s) => ({
         id: s.id,
         title: s.title,
-        subject: s.subject?.name_en || "Subject",
+        subject:
+          req.lang === "ar"
+            ? s.subject?.name_ar || s.subject?.name_en || "مادة"
+            : s.subject?.name_en || s.subject?.name_ar || "Subject",
         time: s.start_time,
         ...formatSchedules(s, req.timezone),
         teacher: s.teacher?.user?.name || "Teacher",
@@ -376,8 +485,10 @@ export const getDashboard = asyncHandler(async (req, res, next) => {
       })),
       activityFeed,
       activeUsers: {
-        students: studentsCount, // Simplified for now
+        students: studentsCount,
         instructors: teachersCount,
+        admins: stuffCount,
+        parents: parentsCount,
       },
     },
     status: 200,
