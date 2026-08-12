@@ -125,7 +125,6 @@ export const findManyWithPaginationAndCount = async ({
   include,
 }) => {
   const client = getClient(model);
-
   const take = Number(limit) || 20;
   const p = Number(page) || 1;
   const skip = (p - 1) * take;

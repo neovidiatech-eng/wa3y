@@ -46,10 +46,18 @@ export const getAllSchedules = asyncHandler(async (req, res, next) => {
     subjectId,
     page = 1,
     limit = 10,
+    sort_type = "createdAt",
+    sort_order = "desc"
   } = req.query;
 
   const where = {};
+  const orderBy = {};
 
+  if (sort_order === "asc") {
+    orderBy[sort_type] = "asc";
+  } else {
+    orderBy[sort_type] = "desc";
+  }
   if (status) {
     where.status = status;
   }
@@ -131,7 +139,7 @@ export const getAllSchedules = asyncHandler(async (req, res, next) => {
       where,
       page,
       limit,
-      orderBy: { start_time: "asc" },
+      orderBy,
       include: {
         student: {
           include: {
@@ -2149,7 +2157,9 @@ export const submitReview = asyncHandler(async (req, res, next) => {
   let review;
 
   // Ensure session is finalized/settled before saving review
+if (log.leaveTime_student && log.leaveTime_teacher) {
   await finalizeSession(id, req.t);
+}
 
   await db.transaction(async (tx) => {
     review = await tx.create({
