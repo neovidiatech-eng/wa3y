@@ -261,6 +261,7 @@ export const getDashboard = asyncHandler(async (req, res, next) => {
     parentsCount,
     pendingRequestsCount,
     todaySessionsCount,
+    reportsCount,
     totalRevenueAgg,
     monthlyRevenueAgg,
     allStudents,
@@ -285,6 +286,7 @@ export const getDashboard = asyncHandler(async (req, res, next) => {
       model: "schedule",
       where: { start_time: { gte: startOfDay, lte: endOfDay } },
     }),
+    db.count({ model: "Review" }),
 
     // Total Revenue (all-time completed revenue)
     db.aggregate({
@@ -465,6 +467,8 @@ export const getDashboard = asyncHandler(async (req, res, next) => {
         totalTeachers: teachersCount,
         pendingRequests: pendingRequestsCount,
         todaySessions: todaySessionsCount,
+        totalReports: reportsCount,
+        totalFeedbacks: reportsCount,
         totalRevenue,
         monthlyRevenue,
         subscriptions: subscriptionsStatus,
