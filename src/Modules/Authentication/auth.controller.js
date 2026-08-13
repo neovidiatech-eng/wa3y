@@ -276,7 +276,7 @@ export const login = asyncHandler(async (req, res, next) => {
       subscriptionRequests: true,
     },
   });
-  if (!user.confirmAt) {
+  if (!user?.confirmAt) {
     return errorResponse({
       req,
       next,
