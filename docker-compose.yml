@@ -105,6 +105,9 @@ services:
       FRONTEND_URL: ${FRONTEND_URL}
       PORT: ${PORT:-3009}
       CORS_ORIGINS: ${CORS_ORIGINS}
+      BREVO_API_KEY: ${BREVO_API_KEY}
+      SENDER_NAME: ${SENDER_NAME}
+
     depends_on:
       postgres:
         condition: service_healthy
