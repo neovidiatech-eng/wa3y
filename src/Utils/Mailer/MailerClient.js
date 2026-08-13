@@ -1,4 +1,28 @@
+import { BrevoClient } from "@getbrevo/brevo";
 import nodemailer from "nodemailer";
+
+
+let brevoClientInstance;
+
+export const getBrevoClient = () => {
+  if (!process.env.BREVO_API_KEY) {
+    return null;
+  }
+  if (!brevoClientInstance) {
+    brevoClientInstance = new BrevoClient({
+      apiKey: process.env.BREVO_API_KEY,
+    });
+  }
+  if(brevoClientInstance){
+    console.log("✅ Brevo client initialized successfully");
+    
+  }else {
+    console.log("❌ Brevo client initialization failed");
+    
+  }
+
+  return brevoClientInstance;
+};
 
 export const transporter = nodemailer.createTransport({
   host: process.env.MAIL_HOST,

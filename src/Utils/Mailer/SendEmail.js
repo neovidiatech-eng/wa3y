@@ -1,4 +1,4 @@
-import { transporter } from "./MailerClient.js";
+import { transporter,getBrevoClient } from "./MailerClient.js";
 import { mailTemp } from "./MailTemp.js";
 import { getMessage } from "../i18n.js";
 import nodemailer from "nodemailer";
@@ -21,6 +21,8 @@ export const sendEmail = async ({
     return { success: false, error: "No recipient email provided" };
   }
 
+
+
   const emailSubject = subject || getMessage("EMAIL_DEFAULT_SUB", lang);
   const emailText = text || getMessage("EMAIL_BODY_TEXT", lang, { otp: otp || 'N/A' });
   const html = mailTemp({
@@ -36,7 +38,7 @@ export const sendEmail = async ({
   });
 
   const senderEmail = process.env.MAIL_FROM || process.env.MAIL_USER || "noreply@waaiacademy.com";
-  
+  const senderName = process.env.SENDER_NAME || "Waai Academy";
   const mailOptions = {
     from: `"Waai Academy" <${senderEmail}>`,
     replyTo: senderEmail,
@@ -50,12 +52,45 @@ export const sendEmail = async ({
   };
 
   try {
-    // 1) Send real email via SMTP
-    const info = await transporter.sendMail(mailOptions);
-    console.log("📧 Email sent successfully:", info.messageId);
+    // 1) Send email via Brevo API if configured
+    let brevoClient = null;
+    try {
+      brevoClient = getBrevoClient();
+    } catch (e) {
+      console.warn("⚠️ Error initializing Brevo client:", e.message);
+    }
 
-    // 2) Save copy to IMAP Sent folder asynchronously (don't block the main flow)
-    saveToImapSent(mailOptions).catch(err => {
+    if (brevoClient) {
+      try {
+        const response = await brevoClient.transactionalEmails.sendTransacEmail({
+          subject: emailSubject,
+          htmlContent: html,
+          textContent: emailText,
+          sender: { name: senderName,email:senderEmail},
+          to: [{ email: email, name: username || undefined }],
+        });
+
+        const messageId = response?.messageId || "brevo-sent";
+        console.log("📧 Email sent successfully via Brevo API:", messageId);
+
+        // Save copy to IMAP Sent folder asynchronously (don't block main flow)
+        saveToImapSent(mailOptions).catch((err) => {
+          console.error("❌ Failed to save email to IMAP Sent folder:", err.message);
+        });
+
+        return { success: true, messageId };
+      } catch (brevoError) {
+        console.error("❌ Brevo API Error:", brevoError.message || brevoError);
+        console.warn("⚠️ Falling back to SMTP Mailer...");
+      }
+    }
+
+    // 2) Fallback: Send email via SMTP
+    const info = await transporter.sendMail(mailOptions);
+    console.log("📧 Email sent successfully via SMTP:", info.messageId);
+
+    // Save copy to IMAP Sent folder asynchronously (don't block the main flow)
+    saveToImapSent(mailOptions).catch((err) => {
       console.error("❌ Failed to save email to IMAP Sent folder:", err.message);
     });
 
