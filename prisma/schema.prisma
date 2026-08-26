@@ -472,10 +472,10 @@ model Transaction {
   expenseId           String?
   subscriptionId      String?
   withdrawalRequestId String?
-  expense             expenses?          @relation(fields: [expenseId], references: [id])
-  subscription        Subscription?      @relation(fields: [subscriptionId], references: [id])
+  expense             expenses?          @relation(fields: [expenseId], references: [id], onDelete: SetNull)
+  subscription        Subscription?      @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
   wallet              Wallet             @relation(fields: [walletId], references: [id], onDelete: Cascade)
-  withdrawalRequest   WithdrawalRequest? @relation(fields: [withdrawalRequestId], references: [id])
+  withdrawalRequest   WithdrawalRequest? @relation(fields: [withdrawalRequestId], references: [id], onDelete: SetNull)
 }
 
 model ScheduleLog {
@@ -519,9 +519,9 @@ model Conversation {
   teacherUserId String?
   studentUserId String?
   student       student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  userStudent   user?     @relation("StudentConversations", fields: [studentUserId], references: [id])
+  userStudent   user?     @relation("StudentConversations", fields: [studentUserId], references: [id], onDelete: SetNull)
   teacher       teacher   @relation(fields: [teacherId], references: [id], onDelete: Cascade)
-  userTeacher   user?     @relation("TeacherConversations", fields: [teacherUserId], references: [id])
+  userTeacher   user?     @relation("TeacherConversations", fields: [teacherUserId], references: [id], onDelete: SetNull)
   messages      Message[]
 
   @@unique([teacherId, studentId])
