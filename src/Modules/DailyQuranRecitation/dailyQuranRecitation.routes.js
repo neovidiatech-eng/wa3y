@@ -17,7 +17,6 @@ router.get(
   recitationController.getStudentDailyQuranRecitations,
 );
 
-// Logged-in teacher recitations
 router.get(
   "/teacher-recitations",
   authentication(),
@@ -50,6 +49,13 @@ router.get(
   recitationController.getDailyQuranRecitationById,
 );
 
+
+router.patch(
+  "/submit-recitation/:id",
+  authentication(),
+  validation(schema.submitRecitation),
+  recitationController.submitRecitation,
+);
 router.patch(
   "/:id",
   authentication(),

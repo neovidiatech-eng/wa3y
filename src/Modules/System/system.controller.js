@@ -268,6 +268,10 @@ export const getDashboard = asyncHandler(async (req, res, next) => {
     allSubscriptions,
     upcomingSessions,
     lastSevenDaysSessions,
+    totalViolationsCount,
+    subscriptionRequestsCount,
+    completedSessionsCount,
+    transactionRequestsCount,
   ] = await Promise.all([
     db.count({ model: "student" }),
     db.count({ model: "teacher" }),
@@ -351,6 +355,12 @@ export const getDashboard = asyncHandler(async (req, res, next) => {
       where: { start_time: { gte: sevenDaysAgo } },
       select: { start_time: true },
     }),
+
+    // New requested stats
+    db.count({ model: "TeacherViolation" }),
+    db.count({ model: "subscription_requests" }),
+    db.count({ model: "schedule", where: { status: "completed" } }),
+    db.count({ model: "transaction" }),
   ]);
 
   const totalRevenue = Number((totalRevenueAgg?._sum?.amount || 0).toFixed(2));
@@ -472,6 +482,10 @@ export const getDashboard = asyncHandler(async (req, res, next) => {
         totalRevenue,
         monthlyRevenue,
         subscriptions: subscriptionsStatus,
+        totalViolations: totalViolationsCount,
+        subscriptionRequests: subscriptionRequestsCount,
+        completedSessions: completedSessionsCount,
+        transactionRequests: transactionRequestsCount,
       },
       subscriptionsStatus,
       sessionsPerDay,

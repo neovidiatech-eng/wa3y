@@ -1,7 +1,6 @@
 import joi from "joi";
 import { generalFeilds } from "../../Utils/GeneralFields/index.js";
-
-const VALID_STATUSES = ["pending", "completed", "reviewed", "rejected"];
+import { recitationStatus } from "../../Utils/Enums/recitationStatus.js";
 
 export const createDailyQuranRecitation = {
   body: joi
@@ -11,7 +10,7 @@ export const createDailyQuranRecitation = {
       startPage: joi.number().integer().min(1).default(1),
       endPage: joi.number().integer().min(1).default(1),
       dueDate: joi.date().required(),
-      status: joi.string().valid(...VALID_STATUSES).optional(),
+      status: joi.string().valid(...Object.values(recitationStatus)).optional(),
     })
     .required(),
 };
@@ -29,7 +28,7 @@ export const updateDailyQuranRecitation = {
       startPage: joi.number().integer().min(1).optional(),
       endPage: joi.number().integer().min(1).optional(),
       dueDate: joi.date().optional(),
-      status: joi.string().valid(...VALID_STATUSES).optional(),
+      status: joi.string().valid(...Object.values(recitationStatus)).optional(),
     })
     .required(),
 };
@@ -55,7 +54,7 @@ export const getAllDailyQuranRecitations = {
     .object({
       studentId: generalFeilds.id.optional(),
       teacherId: generalFeilds.id.optional(),
-      status: joi.string().valid(...VALID_STATUSES).optional(),
+      status: joi.string().valid(...Object.values(recitationStatus)).optional(),
       surah: joi.string().optional(),
       search: joi.string().optional(),
       page: joi.number().integer().min(1).default(1),
@@ -67,7 +66,7 @@ export const getAllDailyQuranRecitations = {
 export const getStudentDailyQuranRecitations = {
   query: joi
     .object({
-      status: joi.string().valid(...VALID_STATUSES).optional(),
+      status: joi.string().valid(...Object.values(recitationStatus)).optional(),
       page: joi.number().integer().min(1).default(1),
       limit: joi.number().integer().min(1).max(100).default(10),
     })
@@ -78,9 +77,18 @@ export const getTeacherDailyQuranRecitations = {
   query: joi
     .object({
       studentId: generalFeilds.id.optional(),
-      status: joi.string().valid(...VALID_STATUSES).optional(),
+      status: joi.string().valid(...Object.values(recitationStatus)).optional(),
       page: joi.number().integer().min(1).default(1),
       limit: joi.number().integer().min(1).max(100).default(10),
     })
     .optional(),
 };
+
+export const submitRecitation = {
+  params: joi
+    .object({
+      id: generalFeilds.id.required(),
+    })
+    .required(),
+};
+
