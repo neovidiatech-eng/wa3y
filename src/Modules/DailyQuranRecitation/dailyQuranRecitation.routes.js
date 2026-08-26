@@ -50,7 +50,7 @@ router.get(
 );
 
 
-router.patch(
+router.put(
   "/submit-recitation/:id",
   authentication(),
   validation(schema.submitRecitation),
