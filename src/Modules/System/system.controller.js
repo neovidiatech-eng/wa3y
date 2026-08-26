@@ -1,4 +1,3 @@
-
 import {
   asyncHandler,
   errorResponse,
@@ -8,6 +7,7 @@ import * as db from "../../database/dbService.js";
 import { formatSchedules } from "../../Utils/Date/time.js";
 import { rbacCache } from "../../Utils/RBAC/cache.js";
 import dayjs from "dayjs";
+import prisma from "../../database/Connection.db.js";
 
 export const getAllRoles = asyncHandler(async (req, res, next) => {
   const { search } = req.query;
@@ -271,7 +271,7 @@ export const getDashboard = asyncHandler(async (req, res, next) => {
     totalViolationsCount,
     subscriptionRequestsCount,
     completedSessionsCount,
-    transactionRequestsCount,
+    withdrawalRequestsCount,
   ] = await Promise.all([
     db.count({ model: "student" }),
     db.count({ model: "teacher" }),
@@ -360,11 +360,18 @@ export const getDashboard = asyncHandler(async (req, res, next) => {
     db.count({ model: "TeacherViolation" }),
     db.count({ model: "subscription_requests" }),
     db.count({ model: "schedule", where: { status: "completed" } }),
-    db.count({ model: "transaction" }),
+    db.count({
+      model: "withdrawalRequest",
+      where: {
+        status: "pending",
+      },
+    }),
   ]);
 
   const totalRevenue = Number((totalRevenueAgg?._sum?.amount || 0).toFixed(2));
-  const monthlyRevenue = Number((monthlyRevenueAgg?._sum?.amount || 0).toFixed(2));
+  const monthlyRevenue = Number(
+    (monthlyRevenueAgg?._sum?.amount || 0).toFixed(2),
+  );
 
   // Analyze Student Subscriptions & Session Counts (<= 2 sessions remaining OR <= 7 days left)
   let activeSubscriptionsCount = 0;
@@ -375,14 +382,22 @@ export const getDashboard = asyncHandler(async (req, res, next) => {
   for (const student of allStudents) {
     const sub = allSubscriptions.find((s) => s.userId === student.user_id);
     const durationDays = student.plan?.duration || sub?.plan?.duration || 30;
-    const startDate = dayjs(sub?.startDate || sub?.createdAt || student.createdAt);
+    const startDate = dayjs(
+      sub?.startDate || sub?.createdAt || student.createdAt,
+    );
     const endDate = startDate.add(durationDays, "day");
     const daysLeft = endDate.diff(now, "day");
     const sessionsRemaining = Number(student.sessions_remaining ?? 0);
     const planName =
       req.lang === "ar"
-        ? student.plan?.name_ar || sub?.plan?.name_ar || student.plan?.name_en || "الخطة"
-        : student.plan?.name_en || sub?.plan?.name_en || student.plan?.name_ar || "Plan";
+        ? student.plan?.name_ar ||
+          sub?.plan?.name_ar ||
+          student.plan?.name_en ||
+          "الخطة"
+        : student.plan?.name_en ||
+          sub?.plan?.name_en ||
+          student.plan?.name_ar ||
+          "Plan";
     const userName = student.user?.name || "Student";
 
     // Expiring soon: remaining sessions is 1 or 2, OR remaining days is 7 or fewer (with active sessions)
@@ -391,7 +406,9 @@ export const getDashboard = asyncHandler(async (req, res, next) => {
       (sessionsRemaining > 0 && daysLeft >= 0 && daysLeft <= 7);
 
     const isExpired =
-      sub?.status === "expired" || student.status === "rejected" || sessionsRemaining <= 0;
+      sub?.status === "expired" ||
+      student.status === "rejected" ||
+      sessionsRemaining <= 0;
 
     if (isExpiringSoon) {
       expiringSoonSubscriptionsCount++;
@@ -421,7 +438,11 @@ export const getDashboard = asyncHandler(async (req, res, next) => {
   for (let i = 6; i >= 0; i--) {
     const date = now.subtract(i, "day").format("YYYY-MM-DD");
     const count = lastSevenDaysSessions.filter(
-      (s) => dayjs.utc(s.start_time).tz(req.timezone || "Africa/Cairo").format("YYYY-MM-DD") === date,
+      (s) =>
+        dayjs
+          .utc(s.start_time)
+          .tz(req.timezone || "Africa/Cairo")
+          .format("YYYY-MM-DD") === date,
     ).length;
     sessionsPerDay.push({ date, count });
   }
@@ -651,7 +672,7 @@ export const assignPermissionsToRole = asyncHandler(async (req, res, next) => {
     });
   }
 
- const newMappings = await db.transaction(async (tx) => {
+  const newMappings = await db.transaction(async (tx) => {
     await tx.deleteMany({
       model: "rolePermission",
       where: { roleId },
@@ -681,45 +702,47 @@ export const assignPermissionsToRole = asyncHandler(async (req, res, next) => {
   });
 });
 
-export const revokePermissionsFromRole = asyncHandler(async (req, res, next) => {
-  const { roleId, permissionIds } = req.body;
-  if (!roleId || !permissionIds) {
-    return errorResponse({
-      req,
-      next,
-      message: "MISSING_FIELDS",
-      status: 400,
+export const revokePermissionsFromRole = asyncHandler(
+  async (req, res, next) => {
+    const { roleId, permissionIds } = req.body;
+    if (!roleId || !permissionIds) {
+      return errorResponse({
+        req,
+        next,
+        message: "MISSING_FIELDS",
+        status: 400,
+      });
+    }
+
+    const exists = await db.findMany({
+      model: "rolePermission",
+      where: { roleId, permissionId: { in: permissionIds } },
     });
-  }
 
-  const exists = await db.findMany({
-    model: "rolePermission",
-    where: { roleId, permissionId: {in: permissionIds} },
-  });
+    if (exists.length === 0) {
+      return errorResponse({
+        req,
+        next,
+        message: "MAPPING_NOT_FOUND",
+        status: 404,
+      });
+    }
 
-  if (exists.length === 0) {
-    return errorResponse({
-      req,
-      next,
-      message: "MAPPING_NOT_FOUND",
-      status: 404,
+    await db.deleteMany({
+      model: "rolePermission",
+      where: {
+        id: { in: exists.map((r) => r.id) },
+      },
     });
-  }
 
-  await db.deleteMany({
-    model: "rolePermission",
-    where: {
-      id: {in: exists.map(r => r.id)},
-    },
-  });
+    // Invalidate cache for this role
+    await rbacCache.invalidateRoleCache(roleId);
 
-  // Invalidate cache for this role
-  await rbacCache.invalidateRoleCache(roleId);
-
-  return successResponse({
-    res,
-    req,
-    status: 200,
-    message: "REVOKE_SUCCESS",
-  });
-});
+    return successResponse({
+      res,
+      req,
+      status: 200,
+      message: "REVOKE_SUCCESS",
+    });
+  },
+);
