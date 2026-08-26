@@ -506,7 +506,7 @@ export const getDashboard = asyncHandler(async (req, res, next) => {
         totalViolations: totalViolationsCount,
         subscriptionRequests: subscriptionRequestsCount,
         completedSessions: completedSessionsCount,
-        transactionRequests: transactionRequestsCount,
+        withdrawalRequestsCount: withdrawalRequestsCount,
       },
       subscriptionsStatus,
       sessionsPerDay,
