@@ -44,6 +44,7 @@ model user {
   teacher              teacher?
   supervisorViolations TeacherViolation[]      @relation("SupervisorViolations")
   role                 role?                   @relation(fields: [roleId], references: [id])
+  moderator            moderator?
 
   @@index([email])
   @@index([googleId])
@@ -254,6 +255,7 @@ model student {
   teachers              teacher[]              @relation("TeacherStudentRelation")
   groupSchedules        GroupScheduleStudent[]
   dailyQuranRecitations DailyQuranRecitation[]
+  studentModerators     student_moderator[]
 }
 
 model student_teacher {
@@ -645,12 +647,33 @@ model DailyQuranRecitation {
   studentId String
   teacherId String
   status    String   @default("pending")
-  startPage Int @default(1)
-  endPage Int @default(1)
+  startPage Int      @default(1)
+  endPage   Int      @default(1)
   surah     String
   dueDate   DateTime
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   student   student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
   teacher   teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+}
+
+model moderator {
+  id                String              @id @default(uuid())
+  userId            String              @unique
+  gender            String              @default("male")
+  createdAt         DateTime            @default(now())
+  status            String              @default("active")
+  updatedAt         DateTime            @updatedAt
+  user              user                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  studentModerators student_moderator[]
+}
+
+model student_moderator {
+  id          String    @id @default(uuid())
+  studentId   String
+  moderatorId String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  student     student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  moderator   moderator @relation(fields: [moderatorId], references: [id], onDelete: Cascade)
 }

@@ -28,9 +28,7 @@ export const generalFeilds = {
     "any.required": "Role name is required",
   }),
   url: Joi.string().uri(),
-  fcmToken: Joi.string()
-    .min(50)
-    .max(500),
+  fcmToken: Joi.string().min(50).max(500),
 
   permission_name: Joi.string().min(3).max(32).messages({
     "string.base": "Permission name must be a string",
@@ -155,7 +153,7 @@ export const generalFeilds = {
   //   "string.max": "Bio must be at most {#limit} characters",
   //   "any.required": "Bio is required",
   // }),
-  search: Joi.string().max(32).messages({
+  search: Joi.string().max(32).allow("", null).messages({
     "string.base": "Search query must be a string",
     "string.empty": "Search query cannot be empty",
     "string.max": "Search query must be at most {#limit} characters",
@@ -166,6 +164,17 @@ export const generalFeilds = {
     "string.empty": "Search query cannot be empty",
     "string.max": "Search query must be at most {#limit} characters",
     "any.required": "Search query is required",
+  }),
+  orderBy:Joi.string().optional().messages({
+    "string.base": "Order by must be a string",
+    "string.empty": "Order by cannot be empty",
+    "any.required": "Order by is required",
+  }),
+  order: Joi.string().valid("asc", "desc").optional().messages({
+    "string.base": "Order must be a string",
+    "string.empty": "Order cannot be empty",
+    "any.only": "Order must be either 'asc' or 'desc'",
+    "any.required": "Order is required",
   }),
   file: {
     fieldname: Joi.string().required().messages({
@@ -214,13 +223,15 @@ export const generalFeilds = {
       "any.required": "File size is required",
     }),
   },
-  codeCountry: Joi.string().pattern(/^\+[1-9]\d{0,2}$/).messages({
-    "string.base": "Code country must be a string",
-    "string.empty": "Code country cannot be empty",
-    "string.pattern.base":
-      "Code country must be an international prefix like +1, +20, +44, or +966",
-    "any.required": "Code country is required",
-  }),
+  codeCountry: Joi.string()
+    .pattern(/^\+[1-9]\d{0,2}$/)
+    .messages({
+      "string.base": "Code country must be a string",
+      "string.empty": "Code country cannot be empty",
+      "string.pattern.base":
+        "Code country must be an international prefix like +1, +20, +44, or +966",
+      "any.required": "Code country is required",
+    }),
   name_en: Joi.string().messages({
     "string.base": "Name must be a string",
     "string.empty": "Name cannot be empty",

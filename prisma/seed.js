@@ -22,6 +22,7 @@ import { seedNotifications } from "./seeders/notifications.seeder.js";
 import { seedInfractionItems } from "./seeders/violations.seeder.js";
 import { seedRanks } from "./seeders/ranks.seeder.js";
 import { seedReviews } from "./seeders/reviews.seeder.js";
+import { seedModerators } from "./seeders/moderator.seeder.js";
 
 dotenv.config();
 
@@ -42,6 +43,7 @@ async function main() {
   await seedTeacherSubjects();
   await seedStudents();
   await seedStudentTeachers(); // seeds student_teacher junction with hour_price
+  await seedModerators();
   await seedSubscriptionRequests();
   await seedSchedules();
   await seedExpenses();

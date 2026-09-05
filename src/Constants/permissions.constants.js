@@ -221,4 +221,12 @@ export const PERMISSIONS_V2 = {
     MANAGE: "violations:manage",
     READ_MY_VIOLATIONS: "violations:read_my_violations",
   },
+  MODERATORS: {
+    READ: "moderators:read",
+    CREATE: "moderators:create",
+    UPDATE: "moderators:update",
+    DELETE: "moderators:delete",
+    MANAGE: "moderators:manage",
+  },
 };
+

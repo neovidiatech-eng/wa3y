@@ -28,6 +28,7 @@ import violationsRouter from "./Modules/Violations/violations.routes.js";
 import ranksRouter from "./Modules/Ranks/ranks.routes.js";
 import dailyQuranRecitationRouter from "./Modules/DailyQuranRecitation/dailyQuranRecitation.routes.js";
 import feedbackRouter from "./Modules/feedback/feedback.routes.js";
+import moderatorRouter from "./Modules/moderator/moderator.routes.js";
 
 const rootRouter = Router();
 
@@ -58,6 +59,7 @@ rootRouter.use("/violations", violationsRouter);
 rootRouter.use("/ranks", ranksRouter);
 rootRouter.use("/daily-quran-recitation", dailyQuranRecitationRouter);
 rootRouter.use("/feedback",feedbackRouter);
+rootRouter.use("/moderator", moderatorRouter);
 
 // Static files
 rootRouter.use("/uploads", express.static(path.resolve("./uploads")));

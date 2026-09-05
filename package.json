@@ -22,6 +22,7 @@
     "seed:notifications": "node prisma/seeders/notifications.seeder.js",
     "seed:violations": "node prisma/seeders/violations.seeder.js",
     "seed:ranks": "node prisma/seeders/ranks.seeder.js",
+    "seed:moderator": "node prisma/seeders/moderator.seeder.js",
     "seed:all": "npx prisma db seed"
   },
   "keywords": [],

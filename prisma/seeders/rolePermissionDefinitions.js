@@ -1,11 +1,29 @@
 import { PERMISSIONS_V2 } from "../../src/Constants/permissions.constants.js";
 
-export const rolesList = ["super_admin", "admin", "teacher", "student", "parent"];
+export const rolesList = ["super_admin", "admin", "teacher", "student", "parent", "moderator"];
+
+const allPermissionsList = Object.values(PERMISSIONS_V2).flatMap((group) =>
+  Object.values(group),
+);
+
+const excludedForModerator = new Set([
+  ...Object.values(PERMISSIONS_V2.DASHBOARD || {}),
+  ...Object.values(PERMISSIONS_V2.SETTINGS || {}),
+  ...Object.values(PERMISSIONS_V2.ROLES || {}),
+  ...Object.values(PERMISSIONS_V2.PERMISSIONS || {}),
+  ...Object.values(PERMISSIONS_V2.POLICIES || {}),
+  ...Object.values(PERMISSIONS_V2.FINANCES || {}),
+  ...Object.values(PERMISSIONS_V2.WITHDRAWALS || {}),
+]);
 
 export const getRolePermissionCodes = () => ({
   // Super Admin & Admin get all permissions during seeding.
   super_admin: "ALL",
   admin: "ALL",
+
+  moderator: allPermissionsList.filter(
+    (code) => !excludedForModerator.has(code),
+  ),
 
   teacher: [
     PERMISSIONS_V2.PROFILE.VIEW,
