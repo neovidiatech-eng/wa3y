@@ -177,9 +177,7 @@ export const createModerator = async (req) => {
           },
         },
       },
-      studentModerators: {
-        create: mappedStudents,
-      },
+      ...(mappedStudents.length > 0 && { studentModerators: { create: mappedStudents } })
     },
   });
 
@@ -236,7 +234,7 @@ export const updateModerator = async (req) => {
   }
 
   if (Object.keys(userDataToUpdate).length > 0) {
-    await db.update({
+    await db.updateOne({
       model: "user",
       where: { id: moderator.userId },
       data: userDataToUpdate,
@@ -249,7 +247,7 @@ export const updateModerator = async (req) => {
   if (status !== undefined) modDataToUpdate.status = status;
 
   if (Object.keys(modDataToUpdate).length > 0) {
-    await db.update({
+    await db.updateOne({
       model: "moderator",
       where: { id },
       data: modDataToUpdate,

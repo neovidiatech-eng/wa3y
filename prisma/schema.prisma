@@ -7,44 +7,46 @@ datasource db {
 }
 
 model user {
-  id                   String                  @id @default(uuid())
-  email                String                  @unique
-  password             String?
-  name                 String?
-  phone                String?
-  createdAt            DateTime                @default(now())
-  updatedAt            DateTime                @updatedAt
-  confirmAt            DateTime?
-  roleId               String?
-  code_country         String?
-  status               String                  @default("pending")
-  googleId             String?                 @unique
-  provider             String                  @default("local")
-  timezone             String?                 @default("Africa/Cairo")
-  country              String?
-  nationality          String?
-  fcmToken             String?                 @default("")
-  age                  Int?                    @default(0)
-  city                 String?                 @default("unknown")
-  additionalData       Json?                   @map("additional_data")
-  conversationsStudent Conversation[]          @relation("StudentConversations")
-  conversations        Conversation[]          @relation("TeacherConversations")
-  messages             Message[]
-  parentStudents       ParentStudent[]         @relation("ParentRelation")
-  reviewsReceived      Review[]                @relation("ReviewsReceived")
-  reviewsGiven         Review[]                @relation("ReviewsGiven")
-  subscriptions        Subscription[]
-  wallet               Wallet[]
-  withdrawalRequests   WithdrawalRequest[]
-  authLogs             auth_log[]
-  sessionRequests      session_request[]
-  student              student?
-  stuff                stuff?
-  subscriptionRequests subscription_requests[]
-  teacher              teacher?
-  supervisorViolations TeacherViolation[]      @relation("SupervisorViolations")
-  role                 role?                   @relation(fields: [roleId], references: [id])
-  moderator            moderator?
+  id                            String                  @id @default(uuid())
+  email                         String                  @unique
+  password                      String?
+  name                          String?
+  phone                         String?
+  createdAt                     DateTime                @default(now())
+  updatedAt                     DateTime                @updatedAt
+  confirmAt                     DateTime?
+  roleId                        String?
+  code_country                  String?
+  status                        String                  @default("pending")
+  googleId                      String?                 @unique
+  provider                      String                  @default("local")
+  timezone                      String?                 @default("Africa/Cairo")
+  country                       String?
+  nationality                   String?
+  fcmToken                      String?                 @default("")
+  age                           Int?                    @default(0)
+  city                          String?                 @default("unknown")
+  additionalData                Json?                   @map("additional_data")
+  conversationsStudent          Conversation[]          @relation("StudentConversations")
+  conversations                 Conversation[]          @relation("TeacherConversations")
+  messages                      Message[]
+  parentStudents                ParentStudent[]         @relation("ParentRelation")
+  reviewsReceived               Review[]                @relation("ReviewsReceived")
+  reviewsGiven                  Review[]                @relation("ReviewsGiven")
+  subscriptions                 Subscription[]
+  wallet                        Wallet[]
+  withdrawalRequests            WithdrawalRequest[]
+  authLogs                      auth_log[]
+  sessionRequests               session_request[]
+  student                       student?
+  stuff                         stuff?
+  subscriptionRequests          subscription_requests[]
+  teacher                       teacher?
+  supervisorViolations          TeacherViolation[]      @relation("SupervisorViolations")
+  role                          role?                   @relation(fields: [roleId], references: [id])
+  moderator                     moderator?
+  supervisorModeratorViolations moderatorViolation[]    @relation("ModeratorViolations")
+  moderatorViolations           moderatorViolation[]
 
   @@index([email])
   @@index([googleId])
@@ -593,16 +595,17 @@ model auth_log {
 }
 
 model InfractionItem {
-  id                     String             @id @default(uuid())
+  id                     String               @id @default(uuid())
   title_en               String
   title_ar               String
   description            String?
-  defaultType            String             @default("warning")
-  defaultDeductionAmount Float              @default(0)
-  active                 Boolean            @default(true)
-  createdAt              DateTime           @default(now())
-  updatedAt              DateTime           @updatedAt
+  defaultType            String               @default("warning")
+  defaultDeductionAmount Float                @default(0)
+  active                 Boolean              @default(true)
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
   violations             TeacherViolation[]
+  moderatorViolations    moderatorViolation[]
 }
 
 model TeacherViolation {
@@ -658,14 +661,15 @@ model DailyQuranRecitation {
 }
 
 model moderator {
-  id                String              @id @default(uuid())
-  userId            String              @unique
-  gender            String              @default("male")
-  createdAt         DateTime            @default(now())
-  status            String              @default("active")
-  updatedAt         DateTime            @updatedAt
-  user              user                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  studentModerators student_moderator[]
+  id                  String               @id @default(uuid())
+  userId              String               @unique
+  gender              String               @default("male")
+  createdAt           DateTime             @default(now())
+  status              String               @default("active")
+  updatedAt           DateTime             @updatedAt
+  user                user                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  studentModerators   student_moderator[]
+  moderatorViolations moderatorViolation[]
 }
 
 model student_moderator {
@@ -676,4 +680,25 @@ model student_moderator {
   updatedAt   DateTime  @updatedAt
   student     student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
   moderator   moderator @relation(fields: [moderatorId], references: [id], onDelete: Cascade)
+}
+
+model moderatorViolation {
+  id               String          @id @default(uuid())
+  moderatorId      String
+  supervisorId     String
+  infractionItemId String?
+  type             String          @default("warning")
+  deductionAmount  Float           @default(0)
+  reason           String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  moderator        moderator       @relation(fields: [moderatorId], references: [id], onDelete: Cascade)
+  supervisor       user            @relation("ModeratorViolations", fields: [supervisorId], references: [id], onDelete: Cascade)
+  infractionItem   InfractionItem? @relation(fields: [infractionItemId], references: [id], onDelete: SetNull)
+  user             user?           @relation(fields: [userId], references: [id])
+  userId           String?
+
+
+  @@index([moderatorId])
+  @@index([supervisorId])
 }

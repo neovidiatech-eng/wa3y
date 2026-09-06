@@ -13,7 +13,7 @@ router.get(
   "/items",
   authentication(),
   authorize(PERMISSIONS_V2.VIOLATIONS.READ),
-  violationsController.getInfractionItems
+  violationsController.getInfractionItems,
 );
 
 router.post(
@@ -21,7 +21,7 @@ router.post(
   authentication(),
   authorize(PERMISSIONS_V2.VIOLATIONS.MANAGE),
   validation(violationsValidation.createInfractionItemSchema),
-  violationsController.createInfractionItem
+  violationsController.createInfractionItem,
 );
 
 router.patch(
@@ -29,7 +29,7 @@ router.patch(
   authentication(),
   authorize(PERMISSIONS_V2.VIOLATIONS.MANAGE),
   validation(violationsValidation.updateInfractionItemSchema),
-  violationsController.updateInfractionItem
+  violationsController.updateInfractionItem,
 );
 
 router.delete(
@@ -37,7 +37,7 @@ router.delete(
   authentication(),
   authorize(PERMISSIONS_V2.VIOLATIONS.MANAGE),
   validation(violationsValidation.deleteInfractionItemSchema),
-  violationsController.deleteInfractionItem
+  violationsController.deleteInfractionItem,
 );
 
 /* ---------------- Supervisor Violations & Warnings ---------------- */
@@ -46,7 +46,7 @@ router.post(
   authentication(),
   authorize(PERMISSIONS_V2.VIOLATIONS.CREATE),
   validation(violationsValidation.issueTeacherViolationSchema),
-  violationsController.issueTeacherViolation
+  violationsController.issueTeacherViolation,
 );
 
 router.get(
@@ -54,14 +54,47 @@ router.get(
   authentication(),
   authorize(PERMISSIONS_V2.VIOLATIONS.READ),
   validation(violationsValidation.getTeacherViolationsSchema),
-  violationsController.getTeacherViolations
+  violationsController.getTeacherViolations,
 );
 router.get(
   "/me",
   authentication(),
   authorize(PERMISSIONS_V2.VIOLATIONS.READ_MY_VIOLATIONS),
   validation(violationsValidation.getAuthTeacherViolationsSchema),
-  violationsController.getAuthUserViolations
+  violationsController.getAuthUserViolations,
+);
+
+/* ---------------- Supervisor Moderator Violations & Warnings ---------------- */
+router.post(
+  "/moderator/issue",
+  authentication(),
+  authorize(PERMISSIONS_V2.VIOLATIONS.CREATE),
+  validation(violationsValidation.issueModeratorViolationSchema),
+  violationsController.issueModeratorViolation,
+);
+
+router.get(
+  "/moderator",
+  authentication(),
+  authorize(PERMISSIONS_V2.VIOLATIONS.READ),
+  validation(violationsValidation.getModeratorViolationsSchema),
+  violationsController.getModeratorViolations,
+);
+
+router.get(
+  "/moderator/me",
+  authentication(),
+  authorize(PERMISSIONS_V2.VIOLATIONS.READ_MY_VIOLATIONS),
+  validation(violationsValidation.getAuthModeratorViolationsSchema),
+  violationsController.getAuthUserModeratorViolations,
+);
+
+router.delete(
+  "/moderator/:id",
+  authentication(),
+  authorize(PERMISSIONS_V2.VIOLATIONS.MANAGE),
+  validation(violationsValidation.deleteModeratorViolationSchema),
+  violationsController.deleteModeratorViolation,
 );
 
 export default router;

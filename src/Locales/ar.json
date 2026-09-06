@@ -431,5 +431,9 @@
   "RECITATION_NOT_FOUND": "ورد التلاوة غير موجود",
   "SUBSCRIPTION_EXPIRING_SESSIONS": "اشتراك الطالب {{user}} ({{plan}}) متبقي به {{sessions}} جلسات فقط",
   "SUBSCRIPTION_EXPIRING_DAYS": "اشتراك الطالب {{user}} ({{plan}}) سينتهي خلال {{days}} أيام",
-  "SUBSCRIPTION_EXPIRING_GENERIC": "اشتراك الطالب {{user}} ({{plan}}) ينتهي قريباً"
+  "SUBSCRIPTION_EXPIRING_GENERIC": "اشتراك الطالب {{user}} ({{plan}}) ينتهي قريباً",
+  "NOTIFICATION_MODERATOR_WARNING_TITLE": "تنبيه / تحذير إداري للمشرف",
+  "NOTIFICATION_MODERATOR_PENALTY_TITLE": "مخالفة وخصم مالي للمشرف",
+  "MODERATOR_VIOLATION_DELETED_SUCCESS": "تم حذف مخالفة المشرف بنجاح",
+  "VIOLATION_NOT_FOUND": "سجل المخالفة غير موجود"
 }

@@ -53,8 +53,42 @@ export const getAuthTeacherViolationsSchema = {
 export const getTeacherViolationsSchema = {
   query: Joi.object({
     type: Joi.string().valid("warning", "penalty").optional(),
-    teacherId:generalFeilds.id.optional(),
+    teacherId: generalFeilds.id.optional(),
     page: Joi.number().min(1).default(1),
     limit: Joi.number().min(1).default(10),
   }),
 };
+
+export const issueModeratorViolationSchema = {
+  body: Joi.object({
+    moderatorId: generalFeilds.id.required(),
+    infractionItemId: generalFeilds.id.optional(),
+    type: Joi.string().valid("warning", "penalty").required(),
+    deductionAmount: Joi.number().min(0).default(0),
+    reason: Joi.string().optional(),
+  }),
+};
+
+export const getAuthModeratorViolationsSchema = {
+  query: Joi.object({
+    type: Joi.string().valid("warning", "penalty").optional(),
+    page: Joi.number().min(1).default(1),
+    limit: Joi.number().min(1).default(10),
+  }),
+};
+
+export const getModeratorViolationsSchema = {
+  query: Joi.object({
+    type: Joi.string().valid("warning", "penalty").optional(),
+    moderatorId: generalFeilds.id.optional(),
+    page: Joi.number().min(1).default(1),
+    limit: Joi.number().min(1).default(10),
+  }),
+};
+
+export const deleteModeratorViolationSchema = {
+  params: Joi.object({
+    id: generalFeilds.id.required(),
+  }),
+};
+

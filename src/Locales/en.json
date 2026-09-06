@@ -431,5 +431,9 @@
   "RECITATION_NOT_FOUND": "Quran recitation not found",
   "SUBSCRIPTION_EXPIRING_SESSIONS": "Subscription for {{user}} ({{plan}}) has {{sessions}} session(s) remaining",
   "SUBSCRIPTION_EXPIRING_DAYS": "Subscription for {{user}} ({{plan}}) will expire in {{days}} day(s)",
-  "SUBSCRIPTION_EXPIRING_GENERIC": "Subscription for {{user}} ({{plan}}) is expiring soon"
+  "SUBSCRIPTION_EXPIRING_GENERIC": "Subscription for {{user}} ({{plan}}) is expiring soon",
+  "NOTIFICATION_MODERATOR_WARNING_TITLE": "Moderator Administrative Warning",
+  "NOTIFICATION_MODERATOR_PENALTY_TITLE": "Moderator Violation & Deduction Penalty",
+  "MODERATOR_VIOLATION_DELETED_SUCCESS": "Moderator violation deleted successfully",
+  "VIOLATION_NOT_FOUND": "Violation record not found"
 }

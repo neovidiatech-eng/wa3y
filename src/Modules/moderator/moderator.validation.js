@@ -61,7 +61,7 @@ const updateModerator = {
       phone: generalFeilds.phone.optional(),
       age: generalFeilds.age.optional(),
       gender: generalFeilds.gender.optional(),
-      status: joi.string().valid("active", "inactive", "pending").optional(),
+      status: joi.string().valid("active", "inactive").optional(),
       studentIds: joi.array().items(generalFeilds.id).optional(),
     })
     .custom(

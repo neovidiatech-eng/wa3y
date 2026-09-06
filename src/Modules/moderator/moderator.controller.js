@@ -54,8 +54,7 @@ export const deleteModerator = asyncHandler(async (req, res, next) => {
   return successResponse({
     req,
     res,
-    data,
-    message: "success",
+    message: "MODERATOR_DELETED_SUCCESS",
     statusCode: 200,
     messageKey: "MODERATOR_DELETED_SUCCESS",
   });

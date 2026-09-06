@@ -269,6 +269,7 @@ export const getDashboard = asyncHandler(async (req, res, next) => {
     upcomingSessions,
     lastSevenDaysSessions,
     totalViolationsCount,
+    totalModeratorViolationsCount,
     subscriptionRequestsCount,
     completedSessionsCount,
     withdrawalRequestsCount,
@@ -358,6 +359,7 @@ export const getDashboard = asyncHandler(async (req, res, next) => {
 
     // New requested stats
     db.count({ model: "TeacherViolation" }),
+    db.count({ model: "moderatorViolation" }),
     db.count({ model: "subscription_requests" }),
     db.count({ model: "schedule", where: { status: "completed" } }),
     db.count({
@@ -504,6 +506,7 @@ export const getDashboard = asyncHandler(async (req, res, next) => {
         monthlyRevenue,
         subscriptions: subscriptionsStatus,
         totalViolations: totalViolationsCount,
+        totalModeratorViolations: totalModeratorViolationsCount,
         subscriptionRequests: subscriptionRequestsCount,
         completedSessions: completedSessionsCount,
         withdrawalRequests: withdrawalRequestsCount,
