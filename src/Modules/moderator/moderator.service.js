@@ -308,18 +308,13 @@ export const deleteModerator = async (req) => {
 };
 export const getAllStudents = async (req) => {
   const {page,limit,search,orderByQuery,order} = req.query;
-const userId= req.user?.id
+const userId= req.user?.moderator?.id
 let where={};
 let orderBy={};
 
 
-const moderator = await db.findOne({
-  model: "moderator",
-  where: { userId },
-  
-});
 
-if (!moderator) {
+if (!userId) {
   const error = new Error("MODERATOR_NOT_FOUND");
   error.cause = 404;
   error.statusCode = 404;
@@ -356,7 +351,7 @@ if (orderByQuery === "createdAt") {
   const students = await db.findManyWithPaginationAndCount({
     model: "student_moderator",
     where:{
-      moderatorId:moderator.id
+      moderatorId:userId
     },
     include:{
       student:{
