@@ -129,14 +129,15 @@ export const createModerator = async (req) => {
     db.findOne({ model: "role", where: { name: baseRoles.MODERATOR } }),
     db.findMany({ model: "student", where: { id: { in: studentIds } } }),
   ]);
- if (students.length !== studentIds.length) {
-  const missingStudents = studentIds.filter((id) => !students.some((s) => s.id === id));
-  const error = new Error("STUDENTS_NOT_FOUND");
-  error.cause = 404;
-  error.statusCode = 404;
-  throw error;
- }  
-
+  if (students.length !== studentIds.length) {
+    const missingStudents = studentIds.filter(
+      (id) => !students.some((s) => s.id === id),
+    );
+    const error = new Error("STUDENTS_NOT_FOUND");
+    error.cause = 404;
+    error.statusCode = 404;
+    throw error;
+  }
 
   if (existingUser) {
     const error = new Error("EMAIL_EXISTS");
@@ -178,7 +179,9 @@ export const createModerator = async (req) => {
           },
         },
       },
-      ...(mappedStudents.length > 0 && { studentModerators: { create: mappedStudents } })
+      ...(mappedStudents.length > 0 && {
+        studentModerators: { create: mappedStudents },
+      }),
     },
   });
 
@@ -307,66 +310,69 @@ export const deleteModerator = async (req) => {
   return { id };
 };
 export const getAllStudents = async (req) => {
-  const {page,limit,search,orderByQuery,order} = req.query;
-const userId= req.user?.moderator?.id
-let where={};
-let orderBy={};
+  const { page, limit, search, orderByQuery, order } = req.query;
+  const userId = req.user?.moderator?.id;
+  let where = {};
+  let orderBy = {};
 
+  if (!userId) {
+    const error = new Error("MODERATOR_NOT_FOUND");
+    error.cause = 404;
+    error.statusCode = 404;
+    throw error;
+  }
 
+  if (search?.trim()) {
+    const value = search.trim();
+    where.user = {
+      OR: [
+        { name: { contains: value, mode: "insensitive" } },
+        { email: { contains: value, mode: "insensitive" } },
+      ],
+    };
+  }
 
-if (!userId) {
-  const error = new Error("MODERATOR_NOT_FOUND");
-  error.cause = 404;
-  error.statusCode = 404;
-  throw error;
-}
-
-
-
-if (search?.trim()) {
-  const value = search.trim();
-  where.user = {
-    OR: [
-      { name: { contains: value, mode: "insensitive" } },
-      { email: { contains: value, mode: "insensitive" } },
-    ],
-  };
-}
-
-if (orderByQuery === "createdAt") {
-  orderBy = {
-    createdAt: order === "asc" ? "asc" : "desc",
-  };
-} else if (orderByQuery === "active") {
-  orderBy = {
-    status: order === "asc" ? "asc" : "desc",
-  };
-} else {
-  // Default sorting
-  orderBy = {
-    createdAt: "desc",
-  };
-}
+  if (orderByQuery === "createdAt") {
+    orderBy = {
+      createdAt: order === "asc" ? "asc" : "desc",
+    };
+  } else if (orderByQuery === "active") {
+    orderBy = {
+      status: order === "asc" ? "asc" : "desc",
+    };
+  } else {
+    // Default sorting
+    orderBy = {
+      createdAt: "desc",
+    };
+  }
 
   const students = await db.findManyWithPaginationAndCount({
     model: "student_moderator",
-    where:{
-      moderatorId:userId
+    where: {
+      moderatorId: userId,
     },
-    include:{
-      student:{
-        include:{
-         
-        }
-      }
-    }
-
+    include: {
+      student: {
+        include: {
+          user: {
+            select: {
+              name: true,
+              email: true,
+              phone: true,
+              age: true,
+              code_country: true,
+              status: true,
+              createdAt: true,
+              id: true,
+            },
+          },
+        },
+      },
+    },
   });
 
-  console.log({students});
-
-  
-
+  console.log({ students });
 
   return { students };
 };
