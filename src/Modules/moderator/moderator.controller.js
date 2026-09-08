@@ -59,3 +59,14 @@ export const deleteModerator = asyncHandler(async (req, res, next) => {
     messageKey: "MODERATOR_DELETED_SUCCESS",
   });
 });
+export const getAllStudents = asyncHandler(async (req, res, next) => {
+  const data = await moderatorService.getAllStudents(req);
+  return successResponse({
+    req,
+    res,
+    data,
+    message: "success",
+    statusCode: 200,
+    messageKey: "MODERATOR_DELETED_SUCCESS",
+  });
+});

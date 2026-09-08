@@ -51,6 +51,7 @@ export const authentication = () => {
           },
           student: true,
           teacher: true,
+          modrator:true
         },
       });
 

@@ -13,7 +13,14 @@ router.get(
   authentication(),
   authorize(PERMISSIONS_V2.MODERATORS.READ),
   validation(schemas.getAllModerators),
-  moderatorController.getAllModerators
+  moderatorController.getAllModerators,
+);
+
+router.get(
+  "/students",
+  authentication(),
+  authorize(PERMISSIONS_V2.MODERATORS.READ_STUDENTS),
+  moderatorController.getAllStudents,
 );
 
 router.post(
@@ -21,7 +28,7 @@ router.post(
   authentication(),
   authorize(PERMISSIONS_V2.MODERATORS.CREATE),
   validation(schemas.createModerator),
-  moderatorController.createModerator
+  moderatorController.createModerator,
 );
 
 router.get(
@@ -29,7 +36,7 @@ router.get(
   authentication(),
   authorize(PERMISSIONS_V2.MODERATORS.READ),
   validation(schemas.getModeratorById),
-  moderatorController.getModeratorById
+  moderatorController.getModeratorById,
 );
 
 router.put(
@@ -37,7 +44,7 @@ router.put(
   authentication(),
   authorize(PERMISSIONS_V2.MODERATORS.UPDATE),
   validation(schemas.updateModerator),
-  moderatorController.updateModerator
+  moderatorController.updateModerator,
 );
 
 router.delete(
@@ -45,7 +52,9 @@ router.delete(
   authentication(),
   authorize(PERMISSIONS_V2.MODERATORS.DELETE),
   validation(schemas.deleteModerator),
-  moderatorController.deleteModerator
+  moderatorController.deleteModerator,
 );
+
+
 
 export default router;

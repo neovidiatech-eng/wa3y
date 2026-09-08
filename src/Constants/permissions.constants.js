@@ -227,6 +227,9 @@ export const PERMISSIONS_V2 = {
     UPDATE: "moderators:update",
     DELETE: "moderators:delete",
     MANAGE: "moderators:manage",
+    READ_STUDENTS: "moderators:read_students",
   },
+
+
 };
 

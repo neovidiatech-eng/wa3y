@@ -1,3 +1,4 @@
+import prisma from "../../database/Connection.db.js";
 import * as db from "../../database/dbService.js";
 import { baseRoles } from "../../Utils/Enums/roles.js";
 import { encryptPassword } from "../../Utils/Security/index.js";
@@ -304,4 +305,73 @@ export const deleteModerator = async (req) => {
   });
 
   return { id };
+};
+export const getAllStudents = async (req) => {
+  const {page,limit,search,orderByQuery,order} = req.query;
+const userId= req.user?.id
+let where={};
+let orderBy={};
+
+
+const moderator = await db.findOne({
+  model: "moderator",
+  where: { userId },
+  
+});
+
+if (!moderator) {
+  const error = new Error("MODERATOR_NOT_FOUND");
+  error.cause = 404;
+  error.statusCode = 404;
+  throw error;
+}
+
+
+
+if (search?.trim()) {
+  const value = search.trim();
+  where.user = {
+    OR: [
+      { name: { contains: value, mode: "insensitive" } },
+      { email: { contains: value, mode: "insensitive" } },
+    ],
+  };
+}
+
+if (orderByQuery === "createdAt") {
+  orderBy = {
+    createdAt: order === "asc" ? "asc" : "desc",
+  };
+} else if (orderByQuery === "active") {
+  orderBy = {
+    status: order === "asc" ? "asc" : "desc",
+  };
+} else {
+  // Default sorting
+  orderBy = {
+    createdAt: "desc",
+  };
+}
+
+  const students = await db.findManyWithPaginationAndCount({
+    model: "student_moderator",
+    where:{
+      moderatorId:moderator.id
+    },
+    include:{
+      student:{
+        include:{
+         
+        }
+      }
+    }
+
+  });
+
+  console.log({students});
+
+  
+
+
+  return { students };
 };
