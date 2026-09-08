@@ -1,3 +1,4 @@
+import dayjs from "dayjs";
 import {
   asyncHandler,
   errorResponse,
@@ -6,10 +7,25 @@ import {
 import * as db from "../../../database/dbService.js";
 
 export const getTransactions = asyncHandler(async (req, res, next) => {
-  const { currencyId, page, limit, type, status, search } = req.query;
+  const {
+    currencyId,
+    page,
+    limit,
+    type,
+    status,
+    search,
+    month_start,
+    month_end,
+  } = req.query;
+
+  const start = month_start
+    ? dayjs(month_start).startOf("month").toDate()
+    : null;
+  const end = month_end ? dayjs(month_end).endOf("month").toDate() : null;
+  console.log({ start, end });
 
   // 1. Build filter
-  const where = {};
+  const where = {deleted:false};
   if (type) where.type = type;
   if (status) where.status = status;
   if (search) {
@@ -18,22 +34,26 @@ export const getTransactions = asyncHandler(async (req, res, next) => {
       { id: { contains: search, mode: "insensitive" } },
     ];
   }
+  if (start && end) {
+    where.createdAt = { gte: start, lte: end };
+  }
 
   // 2. Fetch transactions with pagination
-  const { items: transactions, pagination } = await db.findManyWithPaginationAndCount({
-    model: "transaction",
-    where,
-    page,
-    limit,
-    include: {
-      wallet: {
-        include: {
-          currency: true
-        }
+  const { items: transactions, pagination } =
+    await db.findManyWithPaginationAndCount({
+      model: "transaction",
+      where,
+      page,
+      limit,
+      include: {
+        wallet: {
+          include: {
+            currency: true,
+          },
+        },
       },
-    },
-    orderBy: { createdAt: "desc" },
-  });
+      orderBy: { createdAt: "desc" },
+    });
 
   // 3. Fetch default currency
   const defaultCurrency = await db.findFirst({
@@ -65,9 +85,10 @@ export const getTransactions = asyncHandler(async (req, res, next) => {
   // 5. Convert transactions
   const convertedTransactions = transactions.map((transaction) => {
     const amount = transaction.amount;
-    
+
     // Formula: convertedAmount = (amount / defaultCurrency.exchangeRate) * targetCurrency.exchangeRate
-    const convertedAmount = (amount / defaultCurrency.exchangeRate) * targetCurrency.exchangeRate;
+    const convertedAmount =
+      (amount / defaultCurrency.exchangeRate) * targetCurrency.exchangeRate;
 
     return {
       id: transaction.id,
@@ -95,8 +116,44 @@ export const getTransactions = asyncHandler(async (req, res, next) => {
   });
 });
 
+export const zeroing = asyncHandler(async (req, res, next) => {
+  const month_start = dayjs().startOf("month").toDate();
+  const month_end = dayjs().endOf("month").toDate();
+
+  const flagedTodeleted = await db.updateMany({
+    model: "transaction",
+    where: {
+      deleted: false,
+      createdAt: {
+        gte: month_start,
+
+        lte: month_end,
+      },
+    },
+    data: {
+      deleted: true,
+    },
+  });
+
+  return successResponse({
+    res,
+    req,
+    status: 200,
+    message: "TRANSACTIONS_FETCHED_SUCCESSFULLY",
+    data: {
+      month_start,
+      month_end,
+    },
+  });
+});
+
 export const getTransactionStats = asyncHandler(async (req, res, next) => {
-  const { currencyId } = req.query;
+  const { currencyId,month_end ,month_start} = req.query;
+
+  const start = month_start
+    ? dayjs(month_start).startOf("month").toDate()
+    : null;
+  const end = month_end ? dayjs(month_end).endOf("month").toDate() : null;
 
   // 1. Fetch default currency
   const defaultCurrency = await db.findFirst({
@@ -131,6 +188,13 @@ export const getTransactionStats = asyncHandler(async (req, res, next) => {
     by: ["type", "status"],
     _sum: { amount: true },
     _count: { id: true },
+      where: {
+      deleted: false,
+      createdAt: {
+        gte: start,
+        lte: end,
+      },
+    },
   });
 
   let totalRevenue = 0;
@@ -144,7 +208,7 @@ export const getTransactionStats = asyncHandler(async (req, res, next) => {
       // Revenue types
       if (["subscription", "credit"].includes(s.type)) {
         totalRevenue += s._sum.amount || 0;
-      } 
+      }
       // Expense types
       else if (["expense", "debit", "withdrawal"].includes(s.type)) {
         totalExpenses += s._sum.amount || 0;
@@ -157,8 +221,13 @@ export const getTransactionStats = asyncHandler(async (req, res, next) => {
   const netProfit = totalRevenue - totalExpenses;
 
   // 4. Helper for conversion
-  const convert = (val) => 
-    Number(((val / defaultCurrency.exchangeRate) * targetCurrency.exchangeRate).toFixed(2));
+  const convert = (val) =>
+    Number(
+      (
+        (val / defaultCurrency.exchangeRate) *
+        targetCurrency.exchangeRate
+      ).toFixed(2),
+    );
 
   return successResponse({
     res,

@@ -476,6 +476,7 @@ model Transaction {
   expenseId           String?
   subscriptionId      String?
   withdrawalRequestId String?
+  deleted             Boolean            @default(false)
   expense             expenses?          @relation(fields: [expenseId], references: [id], onDelete: SetNull)
   subscription        Subscription?      @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
   wallet              Wallet             @relation(fields: [walletId], references: [id], onDelete: Cascade)

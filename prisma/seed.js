@@ -23,6 +23,7 @@ import { seedInfractionItems } from "./seeders/violations.seeder.js";
 import { seedRanks } from "./seeders/ranks.seeder.js";
 import { seedReviews } from "./seeders/reviews.seeder.js";
 import { seedModerators } from "./seeders/moderator.seeder.js";
+import { seedTransactions } from "./seeders/transactions.seeder.js";
 
 dotenv.config();
 
@@ -48,6 +49,7 @@ async function main() {
   await seedSchedules();
   await seedExpenses();
   await seedSystemWallet();
+  await seedTransactions();
   await seedSettings();
   await seedNotifications();
   await seedInfractionItems();
