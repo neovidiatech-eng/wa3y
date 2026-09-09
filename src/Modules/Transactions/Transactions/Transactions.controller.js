@@ -18,14 +18,16 @@ export const getTransactions = asyncHandler(async (req, res, next) => {
     month_end,
   } = req.query;
 
-  const start = month_start
-    ? dayjs(month_start).startOf("month").toDate()
-    : null;
-  const end = month_end ? dayjs(month_end).endOf("month").toDate() : null;
+  if (month_start && month_end) {
+    const start = month_start
+      ? dayjs(month_start).startOf("month").toDate()
+      : null;
+    const end = month_end ? dayjs(month_end).endOf("month").toDate() : null;
+  }
   console.log({ start, end });
 
   // 1. Build filter
-  const where = {deleted:false};
+  const where = { deleted: false };
   if (type) where.type = type;
   if (status) where.status = status;
   if (search) {
@@ -148,12 +150,13 @@ export const zeroing = asyncHandler(async (req, res, next) => {
 });
 
 export const getTransactionStats = asyncHandler(async (req, res, next) => {
-  const { currencyId,month_end ,month_start} = req.query;
-
-  const start = month_start
-    ? dayjs(month_start).startOf("month").toDate()
-    : null;
-  const end = month_end ? dayjs(month_end).endOf("month").toDate() : null;
+  const { currencyId, month_end, month_start } = req.query;
+  let start = null;
+  let end = null;
+  if (month_start && month_end) {
+    start = dayjs(month_start).startOf("month").toDate();
+    end = dayjs(month_end).endOf("month").toDate();
+  }
 
   // 1. Fetch default currency
   const defaultCurrency = await db.findFirst({
@@ -188,12 +191,9 @@ export const getTransactionStats = asyncHandler(async (req, res, next) => {
     by: ["type", "status"],
     _sum: { amount: true },
     _count: { id: true },
-      where: {
+    where: {
       deleted: false,
-      createdAt: {
-        gte: start,
-        lte: end,
-      },
+      ...(start && end && { createdAt: { gte: start, lte: end } }),
     },
   });
 
