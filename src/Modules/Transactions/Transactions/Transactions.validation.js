@@ -14,8 +14,8 @@ export const getTransactionsSchema = {
         .valid("completed", "pending", "failed", "cancelled")
         .optional(),
       search: generalFeilds.search.optional(),
-      month_start: Joi.date().optional(),
-      month_end: Joi.date().optional(),
+      month_start: Joi.date().required(),
+      month_end: Joi.date().required(),
     })
 
     .required(),
@@ -25,8 +25,8 @@ export const getTransactionsStatsSchema = {
   query: Joi.object()
     .keys({
       currencyId: generalFeilds.id.optional(),
-      month_start: Joi.date().optional(),
-      month_end: Joi.date().optional(),
+      month_start: Joi.date().required(),
+      month_end: Joi.date().required(),
     })
     .required(),
 };
