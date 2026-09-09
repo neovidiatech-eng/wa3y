@@ -17,12 +17,13 @@ export const getTransactions = asyncHandler(async (req, res, next) => {
     month_start,
     month_end,
   } = req.query;
-
+let start = null;
+let end = null;
   if (month_start && month_end) {
-    const start = month_start
+    start = month_start
       ? dayjs(month_start).startOf("month").toDate()
       : null;
-    const end = month_end ? dayjs(month_end).endOf("month").toDate() : null;
+    end = month_end ? dayjs(month_end).endOf("month").toDate() : null;
   }
   console.log({ start, end });
 
