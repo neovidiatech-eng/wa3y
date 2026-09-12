@@ -193,9 +193,9 @@ export const registerTeacher = asyncHandler(async (req, res, next) => {
   // 2. Preparation (Hashing, Encryption, OTP)
   const encryptedPassword = encryptPassword({ password });
   const encryptedPhone = encryptText({ text: phone });
-  const otp = /* generateOtp(); */ "225566";
+  const otp =  generateOtp(); 
   const hashedOtp = await hash({ password: otp });
-  console.log(otp, "otp");
+
 
   // 3. Redis OTP Setup
   await redis.set(`${email}_otp_register`, hashedOtp);

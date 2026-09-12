@@ -121,43 +121,23 @@ export const registerTeacherSchema = {
       age: generalFeilds.age.optional(),
       notes: Joi.string().allow("").trim().optional(),
       additionalData: Joi.object().keys({
-        marital_status: Joi.string().trim().required(),
-        education: Joi.string().trim().required(),
-
-        finished_study: Joi.boolean().required(),
-
-        agree_all_conditions: Joi.boolean().required(),
-
-        salary_acceptance: Joi.boolean().required(),
-
-        daily_work_no_weekly_off: Joi.boolean().required(),
-
-        shift_selection: Joi.string().trim().required(),
-
-        all_day_availability: Joi.string().trim().required(),
-
-        can_use_tools: Joi.boolean().required(),
-
-        agree_no_stopping_policy: Joi.boolean().required(),
-
-        supervision_experience_details: Joi.string()
-          .allow("")
-          .trim()
-          .optional(),
-
-        current_job_and_hours: Joi.string().allow("").trim().optional(),
-
-        previous_jobs: Joi.string().allow("").trim().optional(),
-
-        agree_attend_trial_sessions: Joi.boolean().required(),
-
-        internet_stability: Joi.string().trim().required(),
-
-        why_choose_you: Joi.string().trim().required(),
-
-        supervision_role_idea: Joi.string().trim().required(),
-
-        convince_parent_message: Joi.string().trim().required(),
+        whatsappNumber: Joi.string().required(),
+        birthDate: generalFeilds.birth_date.required(),
+        qualification: Joi.string().required(),
+        hasPersonalLaptop:Joi.boolean().required(),
+        governorate: Joi.string().required(),
+        maritalStatus:Joi.string().required(),
+        hasCurrentJob:Joi.boolean().required(),
+        hasFreeTimeFrom3To8:Joi.boolean().required(),
+        dailyFreeTimeHours:Joi.string().required(), 
+        niqabDuringSession:Joi.boolean().required(),
+onlineTeachingExperience:Joi.string().required(),
+        memorizesEntireQuran:Joi.string().required(),
+        howDidYouHearAboutUs:Joi.string().required(),
+        practicalTajweedLevel:Joi.string().required(),
+        theoreticalTajweedLevel:Joi.string().required(),
+        otherLanguages:Joi.string().required(),
+        agreedToWorkConditions:Joi.boolean().required(),
       }),
     })
     .custom(
