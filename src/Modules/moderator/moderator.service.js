@@ -1,7 +1,7 @@
 import prisma from "../../database/Connection.db.js";
 import * as db from "../../database/dbService.js";
 import { baseRoles } from "../../Utils/Enums/roles.js";
-import { encryptPassword } from "../../Utils/Security/index.js";
+import { decryptUserSensitiveFields, encryptPassword } from "../../Utils/Security/index.js";
 
 export const getAllModerators = async (req) => {
   const {
@@ -51,6 +51,7 @@ export const getAllModerators = async (req) => {
           id: true,
           name: true,
           email: true,
+          password: true,
           phone: true,
           status: true,
         },
@@ -62,6 +63,11 @@ export const getAllModerators = async (req) => {
       },
     },
   });
+
+  await Promise.all(
+    moderators.items.map((moderator) => decryptUserSensitiveFields(moderator.user))
+  );
+
   return moderators;
 };
 
@@ -76,6 +82,7 @@ export const getModeratorById = async (req) => {
           id: true,
           name: true,
           email: true,
+          password: true,
           phone: true,
           age: true,
           code_country: true,
@@ -108,6 +115,8 @@ export const getModeratorById = async (req) => {
     error.statusCode = 404;
     throw error;
   }
+
+  await decryptUserSensitiveFields(moderator.user);
 
   return moderator;
 };
