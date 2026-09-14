@@ -3,6 +3,7 @@ import sendEmailEvent from "../../Utils/Mailer/sendEmailEvent.js";
 import { redis } from "../../Utils/Redis/Connection.js";
 import * as db from "../../database/dbService.js";
 import { createAdminNotification } from "../Notifications/notifications.controller.js";
+import * as moderatorService from "../moderator/moderator.service.js";
 
 import {
   asyncHandler,
@@ -22,6 +23,7 @@ import {
 import { generateOtp } from "../../Utils/Security/otp.js";
 import { sendEmail } from "../../Utils/Mailer/SendEmail.js";
 import { generateToken, verifyToken } from "../../Utils/Token/token.js";
+import { activeStatus } from "../../Utils/Enums/status.js";
 
 /* -------------------------------------------- ------------------------------ */
 /*                                SIGN IN AND SIGN UP                           */
@@ -193,9 +195,8 @@ export const registerTeacher = asyncHandler(async (req, res, next) => {
   // 2. Preparation (Hashing, Encryption, OTP)
   const encryptedPassword = encryptPassword({ password });
   const encryptedPhone = encryptText({ text: phone });
-  const otp =  generateOtp(); 
+  const otp = generateOtp();
   const hashedOtp = await hash({ password: otp });
-
 
   // 3. Redis OTP Setup
   await redis.set(`${email}_otp_register`, hashedOtp);
@@ -264,6 +265,8 @@ export const login = asyncHandler(async (req, res, next) => {
     },
     include: {
       teacher: true,
+      student: true,
+      moderator: true,
       role: {
         include: {
           rolePermissions: {
@@ -285,25 +288,57 @@ export const login = asyncHandler(async (req, res, next) => {
     });
   }
 
-  const subscriptionRequest = user?.subscriptionRequests?.find(
-    (request) => request.status === "pending",
-  );
-  if (subscriptionRequest) {
+  if (
+    user.status !== activeStatus.ACTIVE &&
+    user.status !== activeStatus.ACTIVIE
+  ) {
     return errorResponse({
       req,
       next,
-      message: "USER_ALREADY_HAVE_PENDING_SUBSCRIPTION_REQUEST",
-      status: 400,
+      message: "USER_NOT_ACTIVE",
+      status: 401,
     });
   }
 
-  const isPendingTeacher = user?.teacher?.approved === false;
-
-  if (isPendingTeacher) {
+  if (
+    user.teacher &&
+    (user.teacher.active === false || user.teacher.approved === false)
+  ) {
     return errorResponse({
       req,
       next,
-      message: "TEACHER_NOT_APPROVED",
+      message:
+        user.teacher.approved === false
+          ? "TEACHER_NOT_APPROVED"
+          : "TEACHER_NOT_ACTIVE",
+      status: 403,
+    });
+  }
+
+  if (
+    user.moderator &&
+    user.moderator.status !== activeStatus.ACTIVE &&
+    user.moderator.status !== activeStatus.ACTIVIE
+  ) {
+    return errorResponse({
+      req,
+      next,
+      message: "MODERATOR_NOT_ACTIVE",
+      status: 403,
+    });
+  }
+
+  if (
+    user.student &&
+    (user.student.active === false ||
+      (user.student.status &&
+        user.student.status !== activeStatus.ACTIVE &&
+        user.student.status !== activeStatus.ACTIVIE))
+  ) {
+    return errorResponse({
+      req,
+      next,
+      message: "STUDENT_NOT_ACTIVE",
       status: 403,
     });
   }
@@ -490,6 +525,36 @@ export const verifyAccount = asyncHandler(async (req, res, next) => {
     });
   }
 
+  // --- Moderator provisioning (email verified → create pending moderator record) ---
+  const moderatorDataRaw = await redis.get(`${email}_Moderator_data`);
+  if (moderatorDataRaw) {
+    const moderatorData = JSON.parse(moderatorDataRaw);
+
+    await db.create({
+      model: "moderator",
+      data: {
+        user: { connect: { id: moderatorData.user_id } },
+        gender: moderatorData.gender || "male",
+        status: "pending",
+      },
+    });
+
+    await redis.del(`${email}_Moderator_data`);
+
+    await createAdminNotification({
+      title: "طلب تسجيل مشرف جديد",
+      message: `قدّم مشرف جديد طلب تسجيل بانتظار المراجعة: ${user.name} (${user.email}).`,
+      type: "new_moderator",
+    });
+
+    return successResponse({
+      res,
+      req,
+      status: 200,
+      message: "USER_VERIFIED_SUCCESS",
+    });
+  }
+
   // --- Student provisioning ---
   if (user?.role?.name === "student") {
     await createAdminNotification({
@@ -613,6 +678,12 @@ export const refresh = asyncHandler(async (req, res, next) => {
   const user = await db.findFirst({
     model: "user",
     where: { id: verify.id, confirmAt: { not: null } },
+    include: {
+      teacher: true,
+      student: true,
+      moderator: true,
+      role: true,
+    },
   });
   if (!user) {
     return errorResponse({
@@ -622,6 +693,59 @@ export const refresh = asyncHandler(async (req, res, next) => {
       status: 401,
     });
   }
+
+  if (
+    user.status !== activeStatus.ACTIVE &&
+    user.status !== activeStatus.ACTIVIE
+  ) {
+    return errorResponse({
+      req,
+      next,
+      message: "USER_NOT_ACTIVE",
+      status: 401,
+    });
+  }
+
+  if (
+    user.teacher &&
+    (user.teacher.active === false || user.teacher.approved === false)
+  ) {
+    return errorResponse({
+      req,
+      next,
+      message: "TEACHER_NOT_ACTIVE",
+      status: 403,
+    });
+  }
+
+  if (
+    user.moderator &&
+    user.moderator.status !== activeStatus.ACTIVE &&
+    user.moderator.status !== activeStatus.ACTIVIE
+  ) {
+    return errorResponse({
+      req,
+      next,
+      message: "MODERATOR_NOT_ACTIVE",
+      status: 403,
+    });
+  }
+
+  if (
+    user.student &&
+    (user.student.active === false ||
+      (user.student.status &&
+        user.student.status !== activeStatus.ACTIVE &&
+        user.student.status !== activeStatus.ACTIVIE))
+  ) {
+    return errorResponse({
+      req,
+      next,
+      message: "STUDENT_NOT_ACTIVE",
+      status: 403,
+    });
+  }
+
   const accessToken = generateToken({ user, tokenType: "access" });
   const newRefreshToken = generateToken({ user, tokenType: "refresh" });
 
@@ -1077,5 +1201,43 @@ export const rejectTeacherRequest = asyncHandler(async (req, res, next) => {
     req,
     status: 200,
     message: "TEACHER_REQUEST_REJECTED",
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/*                      ADMIN – MODERATOR SIGNUP REQUESTS                     */
+/* -------------------------------------------------------------------------- */
+
+export const getModeratorRequests = asyncHandler(async (req, res, next) => {
+  const data = await moderatorService.getModeratorRequests(req);
+  return successResponse({
+    res,
+    req,
+    message: "FETCH_SUCCESS",
+    data: data.requests
+      ? data
+      : { requests: data.requests, pagination: data.pagination },
+  });
+});
+
+export const approveModeratorRequest = asyncHandler(async (req, res, next) => {
+  const data = await moderatorService.approveModeratorRequest(req);
+  return successResponse({
+    res,
+    req,
+    status: 200,
+    message: "MODERATOR_APPROVED_SUCCESS",
+    data,
+  });
+});
+
+export const rejectModeratorRequest = asyncHandler(async (req, res, next) => {
+  const data = await moderatorService.rejectModeratorRequest(req);
+  return successResponse({
+    res,
+    req,
+    status: 200,
+    message: "MODERATOR_REQUEST_REJECTED",
+    data,
   });
 });

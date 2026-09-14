@@ -8,6 +8,61 @@ import * as schemas from "./moderator.validation.js";
 
 const router = Router();
 
+router.post(
+  "/sign-up-moderator",
+  validation(schemas.registerModeratorSchema),
+  moderatorController.signUpModerator,
+);
+
+/* ── Moderator Signup Requests (Admin) ── */
+router.get(
+  "/requests",
+  authentication(),
+  authorize(PERMISSIONS_V2.MODERATORS.READ),
+  validation(schemas.getModeratorRequestsSchema),
+  moderatorController.getModeratorRequests,
+);
+
+router.patch(
+  "/requests/:userId/approve",
+  authentication(),
+  authorize(PERMISSIONS_V2.MODERATORS.UPDATE),
+  validation(schemas.approveModeratorRequestSchema),
+  moderatorController.approveModeratorRequest,
+);
+
+router.patch(
+  "/requests/:userId/accept",
+  authentication(),
+  authorize(PERMISSIONS_V2.MODERATORS.UPDATE),
+  validation(schemas.approveModeratorRequestSchema),
+  moderatorController.approveModeratorRequest,
+);
+
+router.delete(
+  "/requests/:userId/reject",
+  authentication(),
+  authorize(PERMISSIONS_V2.MODERATORS.DELETE),
+  validation(schemas.rejectModeratorRequestSchema),
+  moderatorController.rejectModeratorRequest,
+);
+
+router.patch(
+  "/requests/:userId/reject",
+  authentication(),
+  authorize(PERMISSIONS_V2.MODERATORS.DELETE),
+  validation(schemas.rejectModeratorRequestSchema),
+  moderatorController.rejectModeratorRequest,
+);
+
+router.patch(
+  "/change-status",
+  authentication(),
+  authorize(PERMISSIONS_V2.MODERATORS.UPDATE),
+  validation(schemas.changeStatus),
+  moderatorController.changeStatus,
+);
+
 router.get(
   "/",
   authentication(),
@@ -55,6 +110,5 @@ router.delete(
   moderatorController.deleteModerator,
 );
 
-
-
 export default router;
+

@@ -1,31 +1,33 @@
-import joi from "joi";
+import Joi from "joi";
 import { generalFeilds, validateInternationalPhoneLength } from "../../Utils/GeneralFields/index.js";
 
+const joi = Joi;
+
 const getAllModerators = {
-  query: joi.object({
+  query: Joi.object({
     page: generalFeilds.page.required(),
     limit: generalFeilds.limit.required(),
     search: generalFeilds.search.optional(),
     order: generalFeilds.order.optional(),
     orderBy: generalFeilds.orderBy.valid("createdAt", "active").when("order", {
-      is: joi.exist(),
-      then: joi.required(),
-      otherwise: joi.optional(),
+      is: Joi.exist(),
+      then: Joi.required(),
+      otherwise: Joi.optional(),
     }),
   }),
 };
 
 const createModerator = {
-  body: joi
+  body: Joi
     .object({
-      name: joi.string().required(),
-      codeCountry:generalFeilds.codeCountry.required(),
+      name: Joi.string().required(),
+      codeCountry: generalFeilds.codeCountry.required(),
       email: generalFeilds.email.required(),
       password: generalFeilds.password.required(),
       phone: generalFeilds.phone.optional(),
       age: generalFeilds.age.required(),
       gender: generalFeilds.gender.required(),
-      studentIds: joi.array().items(generalFeilds.id).required(),
+      studentIds: Joi.array().items(generalFeilds.id).required(),
     })
     .custom(
       validateInternationalPhoneLength({
@@ -39,7 +41,7 @@ const createModerator = {
 };
 
 const getModeratorById = {
-  params: joi
+  params: Joi
     .object({
       id: generalFeilds.id.required(),
     })
@@ -47,22 +49,22 @@ const getModeratorById = {
 };
 
 const updateModerator = {
-  params: joi
+  params: Joi
     .object({
       id: generalFeilds.id.required(),
     })
     .required(),
-  body: joi
+  body: Joi
     .object({
-      name: joi.string().optional(),
+      name: Joi.string().optional(),
       codeCountry: generalFeilds.codeCountry.optional(),
       email: generalFeilds.email.optional(),
       password: generalFeilds.password.optional(),
       phone: generalFeilds.phone.optional(),
       age: generalFeilds.age.optional(),
       gender: generalFeilds.gender.optional(),
-      status: joi.string().valid("active", "inactive").optional(),
-      studentIds: joi.array().items(generalFeilds.id).optional(),
+      status: Joi.string().valid("active", "inactive").optional(),
+      studentIds: Joi.array().items(generalFeilds.id).optional(),
     })
     .custom(
       validateInternationalPhoneLength({
@@ -73,11 +75,88 @@ const updateModerator = {
 };
 
 const deleteModerator = {
-  params: joi
+  params: Joi
     .object({
       id: generalFeilds.id.required(),
     })
     .required(),
 };
 
-export { getAllModerators, createModerator, getModeratorById, updateModerator, deleteModerator };
+export const registerModeratorSchema = {
+  body: Joi.object()
+    .keys({
+      name: generalFeilds.name.required(),
+      email: generalFeilds.email.required(),
+      password: generalFeilds.password.required(),
+      comfirmPassword: generalFeilds.confirmPassword.optional(),
+      confirmPassword: generalFeilds.confirmPassword.optional(),
+      codeCountry: generalFeilds.codeCountry.required(),
+      phone: generalFeilds.phone.required(),
+      gender: generalFeilds.gender.required(),
+      country: generalFeilds.country.optional(),
+      nationality: generalFeilds.nationality.optional(),
+      timezone: Joi.string().optional(),
+      city: generalFeilds.city.optional(),
+      age: generalFeilds.age.optional(),
+      notes: Joi.string().allow("").trim().optional(),
+      additionalData: Joi.object().keys({
+        whatsappNumber: Joi.string().required(),
+        birthDate: generalFeilds.birth_date.required(),
+        qualification: Joi.string().required(),
+        hasPersonalLaptop: Joi.boolean().required(),
+        governorate: Joi.string().required(),
+        maritalStatus: Joi.string().required(),
+        hasCurrentJob: Joi.boolean().required(),
+        hasFreeTimeFrom3To8: Joi.boolean().required(),
+        dailyFreeTimeHours: Joi.string().required(), 
+        agreedToWorkConditions: Joi.boolean().required(),
+      }).optional(),
+    })
+    .custom(
+      validateInternationalPhoneLength({
+        codeCountryKey: "codeCountry",
+      }),
+    )
+    .messages({
+      "phone.e164Length": "PHONE_E164_MAX_LENGTH",
+    })
+    .required(),
+};
+
+export const getModeratorRequestsSchema = {
+  query: Joi.object({
+    page: generalFeilds.page,
+    limit: generalFeilds.limit,
+  }),
+};
+
+export const approveModeratorRequestSchema = {
+  params: Joi.object({
+    userId: generalFeilds.id.required(),
+  }),
+  body: Joi.object({
+    studentIds: Joi.array().items(generalFeilds.id).optional(),
+  }).optional(),
+};
+
+export const rejectModeratorRequestSchema = {
+  params: Joi.object({
+    userId: generalFeilds.id.required(),
+  }),
+};
+
+export const changeStatus = {
+  body: Joi.object({
+    id: generalFeilds.id.required(),
+    status: Joi.string().valid("active", "inactive").required(),
+  }).required(),
+};
+
+export {
+  getAllModerators,
+  createModerator,
+  getModeratorById,
+  updateModerator,
+  deleteModerator,
+};
+

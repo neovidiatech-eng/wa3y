@@ -67,6 +67,102 @@ export const getAllStudents = asyncHandler(async (req, res, next) => {
     data,
     message: "success",
     statusCode: 200,
-    messageKey: "MODERATOR_DELETED_SUCCESS",
+    messageKey: "STUDENTS_FETCHED_SUCCESS",
   });
 });
+
+export const signUpModerator = asyncHandler(async (req, res, next) => {
+  const {
+    name,
+    email,
+    password,
+    confirmPassword,
+    comfirmPassword,
+    codeCountry,
+    phone,
+    gender,
+    country,
+    nationality,
+    timezone,
+    city,
+    age,
+    notes,
+    additionalData,
+  } = req.body;
+
+  const data = await moderatorService.signUpModerator({
+    name,
+    email,
+    password,
+    confirmPassword: confirmPassword || comfirmPassword,
+    codeCountry,
+    phone,
+    gender,
+    country,
+    nationality,
+    timezone,
+    city,
+    age,
+    notes,
+    additionalData,
+    lang: req.lang,
+  });
+
+  return successResponse({
+    req,
+    res,
+    data,
+    message: "MODERATOR_SIGNUP_SUCCESS",
+    statusCode: 201,
+    messageKey: "MODERATOR_SIGNUP_SUCCESS",
+  });
+});
+
+export const getModeratorRequests = asyncHandler(async (req, res, next) => {
+  const data = await moderatorService.getModeratorRequests(req);
+  return successResponse({
+    req,
+    res,
+    data,
+    message: "FETCH_SUCCESS",
+    statusCode: 200,
+    messageKey: "FETCH_SUCCESS",
+  });
+});
+
+export const approveModeratorRequest = asyncHandler(async (req, res, next) => {
+  const data = await moderatorService.approveModeratorRequest(req);
+  return successResponse({
+    req,
+    res,
+    data,
+    message: "MODERATOR_APPROVED_SUCCESS",
+    statusCode: 200,
+    messageKey: "MODERATOR_APPROVED_SUCCESS",
+  });
+});
+
+export const rejectModeratorRequest = asyncHandler(async (req, res, next) => {
+  const data = await moderatorService.rejectModeratorRequest(req);
+  return successResponse({
+    req,
+    res,
+    data,
+    message: "MODERATOR_REQUEST_REJECTED",
+    statusCode: 200,
+    messageKey: "MODERATOR_REQUEST_REJECTED",
+  });
+});
+
+export const changeStatus = asyncHandler(async (req, res, next) => {
+  const data = await moderatorService.changeStatus(req);
+  return successResponse({
+    req,
+    res,
+    data,
+    message: "MODERATOR_STATUS_UPDATED_SUCCESS",
+    statusCode: 200,
+    messageKey: "MODERATOR_STATUS_UPDATED_SUCCESS",
+  });
+});
+

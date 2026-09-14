@@ -2,6 +2,7 @@ import { asyncHandler } from "../Utils/Response.js";
 import { verifyToken } from "../Utils/Token/token.js";
 import * as db from "../database/dbService.js";
 import { redis } from "../Utils/Redis/Connection.js";
+import { activeStatus } from "../Utils/Enums/status.js";
 
 export const authentication = () => {
   return asyncHandler(async (req, res, next) => {
@@ -71,10 +72,35 @@ export const authentication = () => {
       );
     }
 
+    if (user.status !== activeStatus.ACTIVIE) {
+      return next(new Error("USER_NOT_ACTIVE", { cause: 401 }));
+    }
+
+    if (
+      user.teacher &&
+      (user.teacher.active === false || user.teacher.approved === false)
+    ) {
+      return next(new Error("TEACHER_NOT_ACTIVE", { cause: 401 }));
+    }
+
+    if (user.moderator && user.moderator.status !== activeStatus.ACTIVIE) {
+      return next(new Error("MODERATOR_NOT_ACTIVE", { cause: 401 }));
+    }
+
+
+    if (
+      user.student &&
+      (user.student.active === false ||
+        (user.student.status && user.student.status !== activeStatus.ACTIVIE))
+    ) {
+      return next(new Error("STUDENT_NOT_ACTIVE", { cause: 401 }));
+    }
+
     req.user = user;
     next();
   });
 };
+
 
 export default authentication;
 
