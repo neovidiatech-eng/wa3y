@@ -230,6 +230,12 @@ export const PERMISSIONS_V2 = {
     READ_STUDENTS: "moderators:read_students",
   },
 
+  CURRENCIES: {
+    READ: "currencies:read",
+    CREATE: "currencies:create",
+    UPDATE: "currencies:update",
+    DELETE: "currencies:delete",
+  },
 
 };
 

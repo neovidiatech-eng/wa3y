@@ -14,6 +14,7 @@ const excludedForModerator = new Set([
   ...Object.values(PERMISSIONS_V2.POLICIES || {}),
   ...Object.values(PERMISSIONS_V2.FINANCES || {}),
   ...Object.values(PERMISSIONS_V2.WITHDRAWALS || {}),
+  ...Object.values(PERMISSIONS_V2.MODERATORS || {}),
 ]);
 
 export const getRolePermissionCodes = () => ({
@@ -61,6 +62,7 @@ export const getRolePermissionCodes = () => ({
     PERMISSIONS_V2.DAILY_QURAN_RECITATION.DELETE,
     PERMISSIONS_V2.DAILY_QURAN_RECITATION.READ_TEACHER_RECITATIONS,
     PERMISSIONS_V2.VIOLATIONS.READ_MY_VIOLATIONS,
+    PERMISSIONS_V2.CURRENCIES.READ
   ],
 
   student: [
