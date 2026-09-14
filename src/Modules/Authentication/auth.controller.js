@@ -287,6 +287,19 @@ export const login = asyncHandler(async (req, res, next) => {
       status: 401,
     });
   }
+  const subscription_request = user?.subscriptionRequests?.find(
+    (req) => req.status === "pending",
+  );
+
+  if (subscription_request) {
+    return errorResponse({
+      req,
+      next,
+      message: "USER_ALREADY_HAVE_PENDING_SUBSCRIPTION_REQUEST",
+      status: 400,
+    });
+  }
+
 
   if (
     user.status !== activeStatus.ACTIVE &&
@@ -401,7 +414,7 @@ export const login = asyncHandler(async (req, res, next) => {
       accessToken,
       role: user?.role?.name ? user.role.name : req.t("USER_NO_ROLE"),
       permissions,
-      hasPendingSubscriptionRequest: !!subscriptionRequest,
+      hasPendingSubscriptionRequest: !!subscription_request,
     },
   });
 });
