@@ -1,10 +1,22 @@
 import { PERMISSIONS_V2 } from "../../src/Constants/permissions.constants.js";
 
-export const rolesList = ["super_admin", "admin", "teacher", "student", "parent", "moderator"];
+export const rolesList = [
+  "super_admin",
+  "admin",
+  "teacher",
+  "student",
+  "parent",
+  "moderator",
+];
 
 const allPermissionsList = Object.values(PERMISSIONS_V2).flatMap((group) =>
   Object.values(group),
 );
+const moderatorPermissions = {
+  ...Object.values(PERMISSIONS_V2.MODERATORS || {}),
+};
+delete moderatorPermissions[5];
+console.log(moderatorPermissions);
 
 const excludedForModerator = new Set([
   ...Object.values(PERMISSIONS_V2.DASHBOARD || {}),
@@ -14,7 +26,7 @@ const excludedForModerator = new Set([
   ...Object.values(PERMISSIONS_V2.POLICIES || {}),
   ...Object.values(PERMISSIONS_V2.FINANCES || {}),
   ...Object.values(PERMISSIONS_V2.WITHDRAWALS || {}),
-  ...Object.values(PERMISSIONS_V2.MODERATORS || {}),
+  ...Object.values(moderatorPermissions || {}),
 ]);
 
 export const getRolePermissionCodes = () => ({
@@ -62,7 +74,7 @@ export const getRolePermissionCodes = () => ({
     PERMISSIONS_V2.DAILY_QURAN_RECITATION.DELETE,
     PERMISSIONS_V2.DAILY_QURAN_RECITATION.READ_TEACHER_RECITATIONS,
     PERMISSIONS_V2.VIOLATIONS.READ_MY_VIOLATIONS,
-    PERMISSIONS_V2.CURRENCIES.READ
+    PERMISSIONS_V2.CURRENCIES.READ,
   ],
 
   student: [
