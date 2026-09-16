@@ -100,16 +100,16 @@ export const registerModeratorSchema = {
       age: generalFeilds.age.optional(),
       notes: Joi.string().allow("").trim().optional(),
       additionalData: Joi.object().keys({
-        whatsappNumber: Joi.string().required(),
-        birthDate: generalFeilds.birth_date.required(),
-        qualification: Joi.string().required(),
-        hasPersonalLaptop: Joi.boolean().required(),
-        governorate: Joi.string().required(),
-        maritalStatus: Joi.string().required(),
-        hasCurrentJob: Joi.boolean().required(),
-        hasFreeTimeFrom3To8: Joi.boolean().required(),
-        dailyFreeTimeHours: Joi.string().required(), 
-        agreedToWorkConditions: Joi.boolean().required(),
+        whatsappNumber: Joi.string().optional(),
+        birthDate: generalFeilds.birth_date.optional(),
+        qualification: Joi.string().optional(),
+        hasPersonalLaptop: Joi.boolean().optional(),
+        governorate: Joi.string().optional(),
+        maritalStatus: Joi.string().optional(),
+        hasCurrentJob: Joi.boolean().optional(),
+        hasFreeTimeFrom3To8: Joi.boolean().optional(),
+        dailyFreeTimeHours: Joi.string().optional(),
+        agreedToWorkConditions: Joi.boolean().optional(),
       }).optional(),
     })
     .custom(
@@ -125,8 +125,8 @@ export const registerModeratorSchema = {
 
 export const getModeratorRequestsSchema = {
   query: Joi.object({
-    page: generalFeilds.page,
-    limit: generalFeilds.limit,
+    page: generalFeilds.page.optional(),
+    limit: generalFeilds.limit.optional(),
   }),
 };
 

@@ -10,6 +10,7 @@ import {
   encryptText,
   hash,
 } from "../../Utils/Security/index.js";
+import { activeStatus } from "../../Utils/Enums/status.js";
 
 
 export const getAllModerators = async (req) => {
@@ -20,12 +21,20 @@ export const getAllModerators = async (req) => {
     orderBy: orderByQuery,
     order,
   } = req.query;
-  const where = {};
+  const where = {
+    status: activeStatus.ACTIVE,
+    user: {
+      status: activeStatus.ACTIVE,
+      roleId: { not: null },
+    },
+  };
   let orderBy = {};
 
   if (search?.trim()) {
     const value = search.trim();
     where.user = {
+      status: activeStatus.ACTIVE,
+      roleId: { not: null },
       OR: [
         { name: { contains: value, mode: "insensitive" } },
         { email: { contains: value, mode: "insensitive" } },
@@ -396,6 +405,38 @@ export const getAllStudents = async (req) => {
 
   return { students };
 };
+export const changeStatus = async (req) => {
+  const { id, status } = req.body;
+
+  const moderator = await db.findOne({
+    model: "moderator",
+    where: { id },
+    include: { user: true },
+  });
+
+  if (!moderator) {
+    const error = new Error("MODERATOR_NOT_FOUND");
+    error.cause = 404;
+    error.statusCode = 404;
+    throw error;
+  }
+
+  await db.transaction(async (tx) => {
+    await tx.updateOne({
+      model: "moderator",
+      where: { id },
+      data: { status },
+    });
+    await tx.updateOne({
+      model: "user",
+      where: { id: moderator.userId },
+      data: { status },
+    });
+  });
+
+  return { id, status };
+};
+
 export const signUpModerator = async ({
   name,
   email,
@@ -603,35 +644,5 @@ export const rejectModeratorRequest = async (req) => {
   return { id: userId };
 };
 
-export const changeStatus = async (req) => {
-  const { id, status } = req.body;
 
-  const moderator = await db.findOne({
-    model: "moderator",
-    where: { id },
-    include: { user: true },
-  });
-
-  if (!moderator) {
-    const error = new Error("MODERATOR_NOT_FOUND");
-    error.cause = 404;
-    error.statusCode = 404;
-    throw error;
-  }
-
-  await db.transaction(async (tx) => {
-    await tx.updateOne({
-      model: "moderator",
-      where: { id },
-      data: { status },
-    });
-    await tx.updateOne({
-      model: "user",
-      where: { id: moderator.userId },
-      data: { status },
-    });
-  });
-
-  return { id, status };
-};
 

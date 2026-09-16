@@ -71,6 +71,18 @@ export const getAllStudents = asyncHandler(async (req, res, next) => {
   });
 });
 
+export const changeStatus = asyncHandler(async (req, res, next) => {
+  const data = await moderatorService.changeStatus(req);
+  return successResponse({
+    req,
+    res,
+    data,
+    message: "MODERATOR_STATUS_UPDATED_SUCCESS",
+    statusCode: 200,
+    messageKey: "MODERATOR_STATUS_UPDATED_SUCCESS",
+  });
+});
+
 export const signUpModerator = asyncHandler(async (req, res, next) => {
   const {
     name,
@@ -154,15 +166,4 @@ export const rejectModeratorRequest = asyncHandler(async (req, res, next) => {
   });
 });
 
-export const changeStatus = asyncHandler(async (req, res, next) => {
-  const data = await moderatorService.changeStatus(req);
-  return successResponse({
-    req,
-    res,
-    data,
-    message: "MODERATOR_STATUS_UPDATED_SUCCESS",
-    statusCode: 200,
-    messageKey: "MODERATOR_STATUS_UPDATED_SUCCESS",
-  });
-});
 

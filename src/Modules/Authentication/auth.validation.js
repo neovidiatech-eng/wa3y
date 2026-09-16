@@ -195,25 +195,5 @@ export const getTeacherRequestsSchema = {
   }),
 };
 
-export const approveModeratorRequestSchema = {
-  params: Joi.object({
-    userId: generalFeilds.id.required(),
-  }),
-  body: Joi.object({
-    studentIds: Joi.array().items(generalFeilds.id).optional(),
-  }).optional(),
-};
 
-export const rejectModeratorRequestSchema = {
-  params: Joi.object({
-    userId: generalFeilds.id.required(),
-  }),
-};
-
-export const getModeratorRequestsSchema = {
-  query: Joi.object({
-    page: generalFeilds.page,
-    limit: generalFeilds.limit,
-  }),
-};
 

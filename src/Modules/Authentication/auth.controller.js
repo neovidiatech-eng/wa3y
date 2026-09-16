@@ -3,7 +3,6 @@ import sendEmailEvent from "../../Utils/Mailer/sendEmailEvent.js";
 import { redis } from "../../Utils/Redis/Connection.js";
 import * as db from "../../database/dbService.js";
 import { createAdminNotification } from "../Notifications/notifications.controller.js";
-import * as moderatorService from "../moderator/moderator.service.js";
 
 import {
   asyncHandler,
@@ -1217,40 +1216,4 @@ export const rejectTeacherRequest = asyncHandler(async (req, res, next) => {
   });
 });
 
-/* -------------------------------------------------------------------------- */
-/*                      ADMIN – MODERATOR SIGNUP REQUESTS                     */
-/* -------------------------------------------------------------------------- */
 
-export const getModeratorRequests = asyncHandler(async (req, res, next) => {
-  const data = await moderatorService.getModeratorRequests(req);
-  return successResponse({
-    res,
-    req,
-    message: "FETCH_SUCCESS",
-    data: data.requests
-      ? data
-      : { requests: data.requests, pagination: data.pagination },
-  });
-});
-
-export const approveModeratorRequest = asyncHandler(async (req, res, next) => {
-  const data = await moderatorService.approveModeratorRequest(req);
-  return successResponse({
-    res,
-    req,
-    status: 200,
-    message: "MODERATOR_APPROVED_SUCCESS",
-    data,
-  });
-});
-
-export const rejectModeratorRequest = asyncHandler(async (req, res, next) => {
-  const data = await moderatorService.rejectModeratorRequest(req);
-  return successResponse({
-    res,
-    req,
-    status: 200,
-    message: "MODERATOR_REQUEST_REJECTED",
-    data,
-  });
-});

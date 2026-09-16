@@ -10,9 +10,6 @@ import {
   approveTeacherRequestSchema,
   rejectTeacherRequestSchema,
   getTeacherRequestsSchema,
-  approveModeratorRequestSchema,
-  rejectModeratorRequestSchema,
-  getModeratorRequestsSchema,
   resendOtpSchema,
   resetPasswordSchema,
   saveFCM,
@@ -92,31 +89,6 @@ router.delete(
   authorize(PERMISSIONS_V2.TEACHERS.DELETE),
   validation(rejectTeacherRequestSchema),
   auth.rejectTeacherRequest,
-);
-
-/* ── Moderator Signup Requests (Admin) ── */
-router.get(
-  "/moderator-requests",
-  authentication(),
-  authorize(PERMISSIONS_V2.MODERATORS.READ),
-  validation(getModeratorRequestsSchema),
-  auth.getModeratorRequests,
-);
-
-router.patch(
-  "/moderator-requests/:userId/approve",
-  authentication(),
-  authorize(PERMISSIONS_V2.MODERATORS.UPDATE),
-  validation(approveModeratorRequestSchema),
-  auth.approveModeratorRequest,
-);
-
-router.delete(
-  "/moderator-requests/:userId/reject",
-  authentication(),
-  authorize(PERMISSIONS_V2.MODERATORS.DELETE),
-  validation(rejectModeratorRequestSchema),
-  auth.rejectModeratorRequest,
 );
 
 export default router;
