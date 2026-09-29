@@ -1022,6 +1022,7 @@ export const getTeacherRequests = asyncHandler(async (req, res, next) => {
       where: {
         roleId: null,
         confirmAt: { not: null }, // email verified
+        moderator:null
       },
       page,
       limit,
