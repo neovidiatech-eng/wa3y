@@ -2,6 +2,10 @@ import { asyncHandler, successResponse, errorResponse } from "../../Utils/Respon
 import * as db from "../../database/dbService.js";
 import { toUTC, formatSchedules } from "../../Utils/Date/time.js";
 import dayjs from "dayjs";
+import {
+  getModeratorStudentIds,
+  buildStudentScheduleFilter,
+} from "../../Utils/Permissions/permissions.js";
 
 export const getCalendar = asyncHandler(async (req, res, next) => {
   const { startDate, endDate } = req.query;
@@ -11,26 +15,35 @@ export const getCalendar = asyncHandler(async (req, res, next) => {
   const startOfDay = now.startOf("day").toDate();
   const endOfDay = now.endOf("day").toDate();
 
+  const assignedStudentIds = await getModeratorStudentIds(req.user);
+  const moderatorScheduleFilter =
+    assignedStudentIds !== null
+      ? buildStudentScheduleFilter(assignedStudentIds)
+      : {};
+
   const [count, planned, sessions, toDaySessions] = await Promise.all([
     db.count({
       model: "schedule",
+      where: moderatorScheduleFilter,
     }),
     db.count({
       model: "schedule",
       where: {
         status: { in: ["scheduled", "planned"] },
+        ...moderatorScheduleFilter,
       },
     }),
     db.findMany({
       model: "schedule",
+      where: moderatorScheduleFilter,
       include: {
         reviews: {
           include: {
             reviewee: true,
-            reviewer: true
-          }
+            reviewer: true,
+          },
         },
-      }
+      },
     }),
     db.findMany({
       model: "schedule",
@@ -39,10 +52,11 @@ export const getCalendar = asyncHandler(async (req, res, next) => {
           gte: startOfDay,
           lte: endOfDay,
         },
+        ...moderatorScheduleFilter,
       },
       include: {
         reviews: true,
-      }
+      },
     }),
   ]);
   const formattedSessions = formatSchedules(sessions, req.timezone);
@@ -415,6 +429,7 @@ export const getTeachersCalendar = asyncHandler(async (req, res, next) => {
   const { startDate, endDate } = req.query;
   const start = toUTC(startDate, req.timezone)?.toDate();
   const end = toUTC(endDate, req.timezone)?.toDate();
+  const assignedStudentIds = await getModeratorStudentIds(req.user);
   const teachers = await db.findMany({
     model: "teacher",
     select: {
@@ -426,6 +441,8 @@ export const getTeachersCalendar = asyncHandler(async (req, res, next) => {
             gte: start,
             lte: end,
           },
+          ...(assignedStudentIds !== null &&
+            buildStudentScheduleFilter(assignedStudentIds)),
         },
         select: {
           id: true,

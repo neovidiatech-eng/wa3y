@@ -11,14 +11,17 @@ import {
 } from "../../Utils/Security/index.js";
 import { createAdminNotification } from "../Notifications/notifications.controller.js";
 import { studentPaidStatus } from "../../Utils/Enums/studentts.js";
+import { getModeratorStudentIds } from "../../Utils/Permissions/permissions.js";
 
 export const getAllStudents = asyncHandler(async (req, res, next) => {
   const { search, country, plans, page = 1, limit = 10, active } = req.query;
-  console.log(req.query.limit);
-  
-
 
   const where = {};
+  const assignedStudentIds = await getModeratorStudentIds(req.user);
+  if (assignedStudentIds !== null) {
+    where.id = { in: assignedStudentIds };
+  }
+
   if (search) {
     where.user = {
       OR: [
@@ -37,7 +40,10 @@ export const getAllStudents = asyncHandler(async (req, res, next) => {
     where.active = active === "true";
   }
 
-  const [{ items: students, pagination }, totalCount, activeCount,unpaidCount] =
+  const countWhere =
+    assignedStudentIds !== null ? { id: { in: assignedStudentIds } } : {};
+
+  const [{ items: students, pagination }, totalCount, activeCount, unpaidCount] =
     await Promise.all([
       db.findManyWithPaginationAndCount({
         model: "student",
@@ -58,9 +64,12 @@ export const getAllStudents = asyncHandler(async (req, res, next) => {
           rank: true,
         },
       }),
-      db.count({ model: "student" }),
-      db.count({ model: "student", where: { active: true } }),
-      db.count({ model: "student", where: { paid: studentPaidStatus.Unpaid } }),
+      db.count({ model: "student", where: countWhere }),
+      db.count({ model: "student", where: { ...countWhere, active: true } }),
+      db.count({
+        model: "student",
+        where: { ...countWhere, paid: studentPaidStatus.Unpaid },
+      }),
     ]);
 
   const studentsData = await Promise.all(
@@ -243,6 +252,16 @@ export const createStudent = asyncHandler(async (req, res, next) => {
 
 export const getStudentById = asyncHandler(async (req, res, next) => {
   const { id } = req.params;
+
+  const assignedStudentIds = await getModeratorStudentIds(req.user);
+  if (assignedStudentIds !== null && !assignedStudentIds.includes(id)) {
+    return errorResponse({
+      req,
+      next,
+      status: 403,
+      message: "FORBIDDEN",
+    });
+  }
 
   const [student, studentTeachers] = await Promise.all([
     ensureExists({

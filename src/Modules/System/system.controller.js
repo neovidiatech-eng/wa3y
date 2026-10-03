@@ -8,6 +8,10 @@ import { formatSchedules } from "../../Utils/Date/time.js";
 import { rbacCache } from "../../Utils/RBAC/cache.js";
 import dayjs from "dayjs";
 import prisma from "../../database/Connection.db.js";
+import {
+  getModeratorStudentIds,
+  buildStudentScheduleFilter,
+} from "../../Utils/Permissions/permissions.js";
 
 export const getAllRoles = asyncHandler(async (req, res, next) => {
   const { search } = req.query;
@@ -254,6 +258,13 @@ export const getDashboard = asyncHandler(async (req, res, next) => {
   const startOfMonth = now.startOf("month").utc().toDate();
   const endOfMonth = now.endOf("month").utc().toDate();
 
+  const assignedStudentIds = await getModeratorStudentIds(req.user);
+  const isMod = assignedStudentIds !== null;
+  const modScheduleFilter = isMod
+    ? buildStudentScheduleFilter(assignedStudentIds)
+    : {};
+  const modStudentWhere = isMod ? { id: { in: assignedStudentIds } } : {};
+
   const [
     studentsCount,
     teachersCount,
@@ -274,7 +285,7 @@ export const getDashboard = asyncHandler(async (req, res, next) => {
     completedSessionsCount,
     withdrawalRequestsCount,
   ] = await Promise.all([
-    db.count({ model: "student" }),
+    db.count({ model: "student", where: isMod ? modStudentWhere : undefined }),
     db.count({ model: "teacher" }),
     db.count({ model: "stuff" }),
     db.count({
@@ -286,12 +297,29 @@ export const getDashboard = asyncHandler(async (req, res, next) => {
         ],
       },
     }),
-    db.count({ model: "session_request", where: { status: "pending" } }),
+    db.count({
+      model: "session_request",
+      where: {
+        status: "pending",
+        ...(isMod && {
+          OR: [
+            { schedule: modScheduleFilter },
+            { requester: { student: { id: { in: assignedStudentIds } } } },
+          ],
+        }),
+      },
+    }),
     db.count({
       model: "schedule",
-      where: { start_time: { gte: startOfDay, lte: endOfDay } },
+      where: {
+        start_time: { gte: startOfDay, lte: endOfDay },
+        ...modScheduleFilter,
+      },
     }),
-    db.count({ model: "Review" }),
+    db.count({
+      model: "Review",
+      where: isMod ? { schedule: modScheduleFilter } : undefined,
+    }),
 
     // Total Revenue (all-time completed revenue)
     db.aggregate({
@@ -320,6 +348,7 @@ export const getDashboard = asyncHandler(async (req, res, next) => {
     // All Students with plans to analyze session counts & statuses
     db.findMany({
       model: "student",
+      where: isMod ? modStudentWhere : undefined,
       include: {
         plan: { select: { name_en: true, name_ar: true, duration: true } },
         user: { select: { id: true, name: true, email: true } },
@@ -329,6 +358,9 @@ export const getDashboard = asyncHandler(async (req, res, next) => {
     // All Subscriptions to analyze subscription dates
     db.findMany({
       model: "Subscription",
+      where: isMod
+        ? { user: { student: { id: { in: assignedStudentIds } } } }
+        : undefined,
       include: {
         plan: { select: { name_en: true, name_ar: true, duration: true } },
         user: { select: { id: true, name: true, email: true } },
@@ -341,6 +373,7 @@ export const getDashboard = asyncHandler(async (req, res, next) => {
       where: {
         start_time: { gte: startOfDay, lte: endOfDay },
         status: { not: "cancelled" },
+        ...modScheduleFilter,
       },
       orderBy: { start_time: "asc" },
       include: {
@@ -353,7 +386,10 @@ export const getDashboard = asyncHandler(async (req, res, next) => {
     // Sessions for last 7 days
     db.findMany({
       model: "schedule",
-      where: { start_time: { gte: sevenDaysAgo } },
+      where: {
+        start_time: { gte: sevenDaysAgo },
+        ...modScheduleFilter,
+      },
       select: { start_time: true },
     }),
 
@@ -361,7 +397,10 @@ export const getDashboard = asyncHandler(async (req, res, next) => {
     db.count({ model: "TeacherViolation" }),
     db.count({ model: "moderatorViolation" }),
     db.count({ model: "subscription_requests" }),
-    db.count({ model: "schedule", where: { status: "completed" } }),
+    db.count({
+      model: "schedule",
+      where: { status: "completed", ...modScheduleFilter },
+    }),
     db.count({
       model: "withdrawalRequest",
       where: {

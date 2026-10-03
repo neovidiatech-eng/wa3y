@@ -312,6 +312,14 @@ export const updateModerator = async (req) => {
     }
   }
 
+  if (moderator.userId) {
+    try {
+      await redis.del(`user:${moderator.userId}`);
+    } catch (e) {
+      console.error("Redis Cache Del Error:", e.message);
+    }
+  }
+
   return await getModeratorById(req);
 };
 
@@ -336,6 +344,12 @@ export const deleteModerator = async (req) => {
     where: { id: moderator.userId },
   });
 
+  try {
+    await redis.del(`user:${moderator.userId}`);
+  } catch (e) {
+    console.error("Redis Cache Del Error:", e.message);
+  }
+
   return { id };
 };
 export const getAllStudents = async (req) => {
@@ -351,13 +365,17 @@ export const getAllStudents = async (req) => {
     throw error;
   }
 
+  where.moderatorId = userId;
+
   if (search?.trim()) {
     const value = search.trim();
-    where.user = {
-      OR: [
-        { name: { contains: value, mode: "insensitive" } },
-        { email: { contains: value, mode: "insensitive" } },
-      ],
+    where.student = {
+      user: {
+        OR: [
+          { name: { contains: value, mode: "insensitive" } },
+          { email: { contains: value, mode: "insensitive" } },
+        ],
+      },
     };
   }
 
@@ -378,9 +396,7 @@ export const getAllStudents = async (req) => {
 
   const students = await db.findManyWithPaginationAndCount({
     model: "student_moderator",
-    where: {
-      moderatorId: userId,
-    },
+    where,
     include: {
       student: {
         include: {
@@ -619,6 +635,12 @@ export const approveModeratorRequest = async (req) => {
 
     return approvedMod;
   });
+
+  try {
+    await redis.del(`user:${user.id}`);
+  } catch (e) {
+    console.error("Redis Cache Del Error:", e.message);
+  }
 
   await decryptUserSensitiveFields(updatedModerator.user);
   return updatedModerator;

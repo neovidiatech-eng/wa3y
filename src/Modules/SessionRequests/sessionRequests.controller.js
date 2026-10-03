@@ -11,6 +11,7 @@ import {
 } from "../../Utils/Workers/notifications.js";
 import { notificationType } from "../../Utils/Enums/sessions.js";
 import { createAdminNotification, createTeacherAndStudentNotification } from "../Notifications/notifications.controller.js";
+import { getModeratorStudentIds } from "../../Utils/Permissions/permissions.js";
 
 async function resolveRequestUsers(request) {
   let teacherUserId = null;
@@ -122,6 +123,30 @@ export const getAllRequests = asyncHandler(async (req, res, next) => {
   if (status) where.status = status;
   if (type) where.type = type;
 
+  const assignedStudentIds = await getModeratorStudentIds(req.user);
+  if (assignedStudentIds !== null) {
+    where.AND = where.AND || [];
+    where.AND.push({
+      OR: [
+        {
+          schedule: {
+            OR: [
+              { studentId: { in: assignedStudentIds } },
+              { groupStudents: { some: { studentId: { in: assignedStudentIds } } } },
+            ],
+          },
+        },
+        {
+          requester: {
+            student: {
+              id: { in: assignedStudentIds },
+            },
+          },
+        },
+      ],
+    });
+  }
+
   const requests = await db.findMany({
     model: "session_request",
     where,
@@ -171,6 +196,20 @@ export const approveRequest = asyncHandler(async (req, res, next) => {
       status: 404,
       message: "REQUEST_NOT_FOUND",
     });
+  }
+
+  const assignedStudentIds = await getModeratorStudentIds(req.user);
+  if (assignedStudentIds !== null) {
+    const studentId =
+      request.schedule?.studentId || request.requestedData?.studentId;
+    if (!studentId || !assignedStudentIds.includes(studentId)) {
+      return errorResponse({
+        req,
+        next,
+        status: 403,
+        message: "FORBIDDEN",
+      });
+    }
   }
 
   if (request.status !== "pending") {
@@ -486,6 +525,20 @@ export const rejectRequest = asyncHandler(async (req, res, next) => {
       status: 404,
       message: "REQUEST_NOT_FOUND",
     });
+  }
+
+  const assignedStudentIds = await getModeratorStudentIds(req.user);
+  if (assignedStudentIds !== null) {
+    const studentId =
+      request.schedule?.studentId || request.requestedData?.studentId;
+    if (!studentId || !assignedStudentIds.includes(studentId)) {
+      return errorResponse({
+        req,
+        next,
+        status: 403,
+        message: "FORBIDDEN",
+      });
+    }
   }
 
   if (request.status !== "pending") {

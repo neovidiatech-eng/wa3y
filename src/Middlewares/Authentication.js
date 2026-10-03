@@ -52,7 +52,15 @@ export const authentication = () => {
           },
           student: true,
           teacher: true,
-          moderator:true
+          moderator: {
+            include: {
+              studentModerators: {
+                select: {
+                  studentId: true,
+                },
+              },
+            },
+          },
         },
       });
 

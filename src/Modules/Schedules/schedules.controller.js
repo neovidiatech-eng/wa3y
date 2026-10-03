@@ -30,6 +30,10 @@ import dayjs from "dayjs";
 import { getSettingsData } from "../Settings/settings.controller.js";
 import { createAdminNotification, createNotification, createTeacherAndStudentNotification } from "../Notifications/notifications.controller.js";
 import { studentPaidStatus } from "../../Utils/Enums/studentts.js";
+import {
+  getModeratorStudentIds,
+  buildStudentScheduleFilter,
+} from "../../Utils/Permissions/permissions.js";
 
 /* ------------------------------------------------------------------ */
 /*            Admin creates multiple sessions in one request            */
@@ -74,7 +78,11 @@ export const getAllSchedules = asyncHandler(async (req, res, next) => {
     where.subjectId = subjectId;
   }
 
-  if (studentId) {
+  const assignedStudentIds = await getModeratorStudentIds(req.user);
+  if (assignedStudentIds !== null) {
+    where.AND = where.AND || [];
+    where.AND.push(buildStudentScheduleFilter(assignedStudentIds, studentId));
+  } else if (studentId) {
     where.AND = where.AND || [];
     where.AND.push({
       OR: [
@@ -231,6 +239,21 @@ export const createSchedule = asyncHandler(async (req, res, next) => {
       status: 404,
       message: "STUDENT_NOT_FOUND",
     });
+  }
+
+  const assignedStudentIds = await getModeratorStudentIds(req.user);
+  if (assignedStudentIds !== null) {
+    const unauthorized = effectiveStudentIds.find(
+      (id) => !assignedStudentIds.includes(id),
+    );
+    if (unauthorized) {
+      return errorResponse({
+        req,
+        next,
+        status: 403,
+        message: "FORBIDDEN",
+      });
+    }
   }
 
   const isGroup =
@@ -553,6 +576,21 @@ export const createRecurringSchedule = asyncHandler(async (req, res, next) => {
       status: 404,
       message: "STUDENT_NOT_FOUND",
     });
+  }
+
+  const assignedStudentIds = await getModeratorStudentIds(req.user);
+  if (assignedStudentIds !== null) {
+    const unauthorized = effectiveStudentIds.find(
+      (id) => !assignedStudentIds.includes(id),
+    );
+    if (unauthorized) {
+      return errorResponse({
+        req,
+        next,
+        status: 403,
+        message: "FORBIDDEN",
+      });
+    }
   }
 
   const isGroup =
@@ -965,6 +1003,11 @@ export const getUserSchedules = asyncHandler(async (req, res, next) => {
         { groupStudents: { some: { studentId: student.id } } },
       ],
     });
+  } else if (userRole === "moderator") {
+    const assignedStudentIds = await getModeratorStudentIds(user);
+    where.AND = where.AND || [];
+    where.AND.push(buildStudentScheduleFilter(assignedStudentIds, studentId));
+    if (teacherId) where.teacherId = teacherId;
   } else {
     // Admin / Staff role: allow optional teacherId or studentId query filters
     if (teacherId) where.teacherId = teacherId;
@@ -1112,6 +1155,12 @@ export const getTeacherSchedules = asyncHandler(async (req, res, next) => {
   const where = { teacherId };
   if (status) where.status = status;
 
+  const assignedStudentIds = await getModeratorStudentIds(req.user);
+  if (assignedStudentIds !== null) {
+    where.AND = where.AND || [];
+    where.AND.push(buildStudentScheduleFilter(assignedStudentIds));
+  }
+
   if (start_date && end_date) {
     where.start_time = {
       gte: normalizeDate(start_date, req.timezone),
@@ -1229,6 +1278,16 @@ export const getTeacherSchedules = asyncHandler(async (req, res, next) => {
 export const getStudentSchedules = asyncHandler(async (req, res, next) => {
   const studentId = req.params.studentId || req.query.studentId;
   const { status, search, start_date, end_date, page, limit } = req.query;
+
+  const assignedStudentIds = await getModeratorStudentIds(req.user);
+  if (assignedStudentIds !== null && !assignedStudentIds.includes(studentId)) {
+    return errorResponse({
+      req,
+      next,
+      status: 403,
+      message: "FORBIDDEN",
+    });
+  }
 
   const where = {
     OR: [
@@ -1378,6 +1437,26 @@ export const deleteSchedule = asyncHandler(async (req, res, next) => {
       status: 404,
       message: "SESSION_NOT_FOUND",
     });
+  }
+
+  const assignedStudentIds = await getModeratorStudentIds(req.user);
+  if (assignedStudentIds !== null) {
+    const sessionStudentIds = schedule.isGroup
+      ? schedule.groupStudents.map((gs) => gs.studentId)
+      : schedule.studentId
+      ? [schedule.studentId]
+      : [];
+    const hasUnauthorizedStudent = sessionStudentIds.some(
+      (sid) => !assignedStudentIds.includes(sid),
+    );
+    if (hasUnauthorizedStudent || sessionStudentIds.length === 0) {
+      return errorResponse({
+        req,
+        next,
+        status: 403,
+        message: "FORBIDDEN",
+      });
+    }
   }
 
   // Removal job from BullMQ
@@ -1647,6 +1726,29 @@ export const updateSchedule = asyncHandler(async (req, res, next) => {
     : [];
 
   const targetStudentIds = students.map((s) => s.id);
+
+  const assignedStudentIds = await getModeratorStudentIds(req.user);
+  if (assignedStudentIds !== null) {
+    const hasUnauthorizedStudent = targetStudentIds.some(
+      (sid) => !assignedStudentIds.includes(sid),
+    );
+    if (hasUnauthorizedStudent || targetStudentIds.length === 0) {
+      return errorResponse({
+        req,
+        next,
+        status: 403,
+        message: "FORBIDDEN",
+      });
+    }
+    if (req.body.studentId && !assignedStudentIds.includes(req.body.studentId)) {
+      return errorResponse({
+        req,
+        next,
+        status: 403,
+        message: "FORBIDDEN",
+      });
+    }
+  }
 
   // If time or type changes, recalculate end time and check conflicts
   if (start_time) {

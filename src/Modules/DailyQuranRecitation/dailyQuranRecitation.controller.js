@@ -7,6 +7,10 @@ import {
 import * as db from "../../database/dbService.js";
 import { ensureExists } from "../../database/genericService.js";
 import { createNotification } from "../Notifications/notifications.controller.js";
+import {
+  getModeratorStudentIds,
+  buildStudentExamFilter,
+} from "../../Utils/Permissions/permissions.js";
 
 const DEFAULT_INCLUDE = {
   student: {
@@ -28,6 +32,16 @@ const DEFAULT_INCLUDE = {
 export const createDailyQuranRecitation = asyncHandler(
   async (req, res, next) => {
     const { studentId, surah, startPage, endPage, dueDate, status } = req.body;
+
+    const assignedStudentIds = await getModeratorStudentIds(req.user);
+    if (assignedStudentIds !== null && !assignedStudentIds.includes(studentId)) {
+      return errorResponse({
+        req,
+        next,
+        message: "FORBIDDEN",
+        status: 403,
+      });
+    }
 
     // Extract teacher profile directly from logged-in user token
     const teacher =
@@ -103,6 +117,21 @@ export const updateDailyQuranRecitation = asyncHandler(
 
     const userRole = req.user.role?.name;
     let isStudentUpdating = false;
+
+    const assignedStudentIds = await getModeratorStudentIds(req.user);
+    if (assignedStudentIds !== null) {
+      if (
+        !assignedStudentIds.includes(existingRecitation.studentId) ||
+        (studentId && !assignedStudentIds.includes(studentId))
+      ) {
+        return errorResponse({
+          req,
+          next,
+          message: "FORBIDDEN",
+          status: 403,
+        });
+      }
+    }
 
     if (userRole === "student" || req.user.student) {
       const student =
@@ -188,6 +217,19 @@ export const deleteDailyQuranRecitation = asyncHandler(
       message: "RECITATION_NOT_FOUND",
     });
 
+    const assignedStudentIds = await getModeratorStudentIds(req.user);
+    if (
+      assignedStudentIds !== null &&
+      !assignedStudentIds.includes(existingRecitation.studentId)
+    ) {
+      return errorResponse({
+        req,
+        next,
+        message: "FORBIDDEN",
+        status: 403,
+      });
+    }
+
     const roleName = req.user.role?.name;
     if (roleName === "teacher") {
       const teacher =
@@ -231,6 +273,19 @@ export const getDailyQuranRecitationById = asyncHandler(
       message: "RECITATION_NOT_FOUND",
     });
 
+    const assignedStudentIds = await getModeratorStudentIds(req.user);
+    if (
+      assignedStudentIds !== null &&
+      !assignedStudentIds.includes(recitation.studentId)
+    ) {
+      return errorResponse({
+        req,
+        next,
+        message: "FORBIDDEN",
+        status: 403,
+      });
+    }
+
     return successResponse({
       res,
       req,
@@ -254,7 +309,15 @@ export const getAllDailyQuranRecitations = asyncHandler(
     } = req.query;
 
     const where = {};
-    if (studentId) where.studentId = studentId;
+    const assignedStudentIds = await getModeratorStudentIds(req.user);
+    if (assignedStudentIds !== null) {
+      Object.assign(
+        where,
+        buildStudentExamFilter(assignedStudentIds, studentId),
+      );
+    } else if (studentId) {
+      where.studentId = studentId;
+    }
     if (teacherId) where.teacherId = teacherId;
     if (status) where.status = status;
     if (surah) where.surah = { contains: surah, mode: "insensitive" };
