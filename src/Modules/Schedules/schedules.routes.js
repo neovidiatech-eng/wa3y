@@ -28,6 +28,16 @@ router.post(
   scheduleController.createRecurringSchedule,
 );
 
+router.post(
+  "/sync-statuses",
+  authentication(),
+  authorizeResource("sessions"),
+  scheduleController.syncSessionStatuses,
+);
+
+
+
+
 router.delete(
   "/:id",
   authentication(),

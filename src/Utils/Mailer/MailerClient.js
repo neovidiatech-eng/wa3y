@@ -1,56 +1,26 @@
 import { BrevoClient } from "@getbrevo/brevo";
-import nodemailer from "nodemailer";
 
-
-let brevoClientInstance;
+let brevoClientInstance = null;
 
 export const getBrevoClient = () => {
   if (!process.env.BREVO_API_KEY) {
+    console.error("❌ BREVO_API_KEY is missing from environment variables");
     return null;
   }
   if (!brevoClientInstance) {
-    brevoClientInstance = new BrevoClient({
-      apiKey: process.env.BREVO_API_KEY,
-    });
-  }
-  if(brevoClientInstance){
-    console.log("✅ Brevo client initialized successfully");
-    
-  }else {
-    console.log("❌ Brevo client initialization failed");
-    
+    try {
+      brevoClientInstance = new BrevoClient({
+        apiKey: process.env.BREVO_API_KEY,
+      });
+      console.log("✅ Brevo client initialized successfully");
+    } catch (error) {
+      console.error("❌ Failed to initialize Brevo client:", error.message);
+      return null;
+    }
   }
 
   return brevoClientInstance;
 };
 
-export const transporter = nodemailer.createTransport({
-  host: process.env.MAIL_HOST,
-  port: Number(process.env.MAIL_PORT) || 465,
-  secure: Number(process.env.MAIL_PORT) === 465,
-  pool: true, // تفعيل التجميع لإعادة استخدام الاتصال وتجنب الـ timeout
-  maxConnections: 5,
-  maxMessages: 100,
-  auth: {
-    user: process.env.MAIL_USER,
-    pass: process.env.MAIL_PASS,
-  },
-  tls: {
-    rejectUnauthorized: false,
-  },
-  // timeout كبير لتجنب disconnect
-  connectionTimeout: 10000,
-}); 
-
-// فحص الاتصال عند التشغيل لضمان استجابة السيرفر
-transporter.verify((error, success) => {
-  if (error) {
-    console.error("❌ SMTP Connection Error:", error.message);
-    if (!process.env.MAIL_USER) console.error("   - MAIL_USER is missing or empty");
-    if (!process.env.MAIL_PASS) console.error("   - MAIL_PASS is missing or empty");
-  } else {
-    console.log("📧 SMTP Server is ready to take messages");
-  }
-});
 
 

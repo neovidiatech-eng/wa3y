@@ -1,8 +1,6 @@
-import { transporter,getBrevoClient } from "./MailerClient.js";
+import { getBrevoClient } from "./MailerClient.js";
 import { mailTemp } from "./MailTemp.js";
 import { getMessage } from "../i18n.js";
-import nodemailer from "nodemailer";
-import { ImapFlow } from "imapflow";
 
 export const sendEmail = async ({
   email,
@@ -21,10 +19,8 @@ export const sendEmail = async ({
     return { success: false, error: "No recipient email provided" };
   }
 
-
-
   const emailSubject = subject || getMessage("EMAIL_DEFAULT_SUB", lang);
-  const emailText = text || getMessage("EMAIL_BODY_TEXT", lang, { otp: otp || 'N/A' });
+  const emailText = text || getMessage("EMAIL_BODY_TEXT", lang, { otp: otp || "N/A" });
   const html = mailTemp({
     otp,
     title: emailSubject,
@@ -39,133 +35,33 @@ export const sendEmail = async ({
 
   const senderEmail = process.env.MAIL_FROM || process.env.MAIL_USER || "noreply@waaiacademy.com";
   const senderName = process.env.SENDER_NAME || "Waai Academy";
-  const mailOptions = {
-    from: `"Waai Academy" <${senderEmail}>`,
-    replyTo: senderEmail,
-    to: email,
-    subject: emailSubject,
-    text: emailText,
-    html: html,
-    headers: {
-      'X-Entity-Ref-ID': Date.now().toString(),
-    }
-  };
 
   try {
-    // 1) Send email via Brevo API if configured
-    let brevoClient = null;
-    try {
-      brevoClient = getBrevoClient();
-    } catch (e) {
-      console.warn("⚠️ Error initializing Brevo client:", e.message);
+    const brevoClient = getBrevoClient();
+    if (!brevoClient) {
+      throw new Error("Brevo client is not initialized. Please verify BREVO_API_KEY.");
     }
 
-    if (brevoClient) {
-      try {
-        const response = await brevoClient.transactionalEmails.sendTransacEmail({
-          subject: emailSubject,
-          htmlContent: html,
-          textContent: emailText,
-          sender: { name: senderName,email:senderEmail},
-          to: [{ email: email, name: username || undefined }],
-        });
-
-        const messageId = response?.messageId || "brevo-sent";
-        console.log("📧 Email sent successfully via Brevo API:", messageId);
-
-        // Save copy to IMAP Sent folder asynchronously (don't block main flow)
-        saveToImapSent(mailOptions).catch((err) => {
-          console.error("❌ Failed to save email to IMAP Sent folder:", err.message);
-        });
-
-        return { success: true, messageId };
-      } catch (brevoError) {
-        console.error("❌ Brevo API Error:", brevoError.message || brevoError);
-        console.warn("⚠️ Falling back to SMTP Mailer...");
-      }
-    }
-
-    // 2) Fallback: Send email via SMTP
-    const info = await transporter.sendMail(mailOptions);
-    console.log("📧 Email sent successfully via SMTP:", info.messageId);
-
-    // Save copy to IMAP Sent folder asynchronously (don't block the main flow)
-    saveToImapSent(mailOptions).catch((err) => {
-      console.error("❌ Failed to save email to IMAP Sent folder:", err.message);
+    const response = await brevoClient.transactionalEmails.sendTransacEmail({
+      subject: emailSubject,
+      htmlContent: html,
+      textContent: emailText,
+      sender: { name: senderName, email: senderEmail },
+      to: [{ email, name: username || undefined }],
+      replyTo: { email: senderEmail, name: senderName },
     });
 
-    return { success: true, messageId: info.messageId };
+    const messageId = response?.messageId || "brevo-sent";
+    console.log("📧 Email sent successfully via Brevo API:", messageId);
+
+    return { success: true, messageId };
   } catch (error) {
-    if (error.code === 'ETIMEDOUT') {
-      console.error("❌ Mailer Timeout: Could not connect to SMTP server.");
-    } else {
-      console.error("❌ Mailer Error:", error.message);
-    }
-    return { success: false, error: error.message, code: error.code };
+    console.error("❌ Brevo Mailer Error:", error?.message || error);
+    return {
+      success: false,
+      error: error?.message || "Failed to send email via Brevo",
+      code: error?.code,
+    };
   }
 };
 
-async function saveToImapSent(mailOptions) {
-  if (!process.env.MAIL_USER || !process.env.MAIL_PASS) {
-    return;
-  }
-
-  const imapHost = process.env.IMAP_HOST || process.env.MAIL_HOST;
-  if (!imapHost) {
-    console.warn("⚠️ IMAP host is not configured; skipping Sent folder save");
-    return;
-  }
-
-  const rawTransport = nodemailer.createTransport({
-    streamTransport: true,
-    buffer: true,
-    newline: "unix",
-  });
-
-  const rawInfo = await rawTransport.sendMail(mailOptions);
-  const rawMessage = rawInfo.message;
-
-  const client = new ImapFlow({
-    host: imapHost,
-    port: Number(process.env.IMAP_PORT) || 993,
-    secure: Number(process.env.IMAP_PORT || 993) === 993,
-    auth: {
-      user: process.env.MAIL_USER,
-      pass: process.env.MAIL_PASS,
-    },
-    tls: {
-      rejectUnauthorized: false,
-    },
-    logger: false,
-  });
-
-  await client.connect();
-  try {
-    const folders = await client.list();
-    const sentFolder = folders.find(folder => folder.specialUse === "\\Sent")?.path;
-    const commonSentFolders = [
-      process.env.IMAP_SENT_FOLDER,
-      sentFolder,
-      "Sent",
-      "INBOX.Sent",
-      "Sent Messages",
-      "Sent Mail",
-      "[Gmail]/Sent Mail",
-    ].filter(Boolean);
-
-    const candidates = [...new Set(commonSentFolders)];
-    for (const folder of candidates) {
-      try {
-        await client.append(folder, rawMessage, ["\\Seen"], new Date());
-        console.log(`📧 Saved email copy to IMAP Sent folder: ${folder}`);
-        return;
-      } catch (e) {
-        console.warn(`⚠️ Could not save email copy to IMAP folder "${folder}": ${e.message}`);
-      }
-    }
-
-    console.warn("⚠️ Could not find a writable IMAP Sent folder");
-  } finally {
-    await client.logout();
-  }
-}

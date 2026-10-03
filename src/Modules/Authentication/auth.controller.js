@@ -551,7 +551,6 @@ export const verifyAccount = asyncHandler(async (req, res, next) => {
       },
     });
 
-    await redis.del(`${email}_Moderator_data`);
 
     await createAdminNotification({
       title: "طلب تسجيل مشرف جديد",

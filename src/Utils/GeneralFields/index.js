@@ -65,6 +65,11 @@ export const generalFeilds = {
     "string.email": "Please enter a valid email address",
     "any.required": "Email is required",
   }),
+  hourPrice: Joi.number().min(0).messages({
+    "number.base": "HOUR_PRICE_MUST_BE_NUMBER",
+    "number.min": "HOUR_PRICE_MUST_BE_POSITIVE",
+    "any.required": "HOUR_PRICE_REQUIRED",
+  }),
   password: Joi.string()
     .pattern(
       new RegExp(

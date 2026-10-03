@@ -315,12 +315,18 @@ model schedule {
 }
 
 model GroupScheduleStudent {
-  id         String   @id @default(uuid())
+  id         String    @id @default(uuid())
   scheduleId String
   studentId  String
-  createdAt  DateTime @default(now())
-  schedule   schedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
-  student    student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  status     String    @default("pending")
+  isAttended Boolean   @default(false)
+  joinTime   DateTime?
+  leaveTime  DateTime?
+  duration   Float?    @default(0)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  schedule   schedule  @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  student    student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@unique([scheduleId, studentId])
   @@index([scheduleId])
@@ -666,6 +672,7 @@ model moderator {
   userId              String               @unique
   gender              String               @default("male")
   createdAt           DateTime             @default(now())
+  salary              Float?                @default(0)
   status              String               @default("active")
   updatedAt           DateTime             @updatedAt
   user                user                 @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -698,7 +705,6 @@ model moderatorViolation {
   infractionItem   InfractionItem? @relation(fields: [infractionItemId], references: [id], onDelete: SetNull)
   user             user?           @relation(fields: [userId], references: [id])
   userId           String?
-
 
   @@index([moderatorId])
   @@index([supervisorId])

@@ -28,7 +28,9 @@ export const createStudentSchema = {
       timezone: Joi.string().optional(),
       city: generalFeilds.city.optional(),
       age: generalFeilds.age.optional(),
-      paid: Joi.string().valid(...Object.values(studentPaidStatus)).required(),
+      paid: Joi.string()
+        .valid(...Object.values(studentPaidStatus))
+        .required(),
     })
     .custom(
       validateInternationalPhoneLength({
@@ -60,7 +62,9 @@ export const updateStudentSchema = {
       timezone: Joi.string().optional(),
       city: generalFeilds.city.optional(),
       age: generalFeilds.age.optional(),
-      paid: Joi.string().valid(...Object.values(studentPaidStatus)).optional(),
+      paid: Joi.string()
+        .valid(...Object.values(studentPaidStatus))
+        .optional(),
     })
     .custom(
       validateInternationalPhoneLength({
@@ -86,5 +90,25 @@ export const updateStudentPlanSchema = {
   }),
   body: Joi.object().keys({
     planId: generalFeilds.id.required(),
+  }),
+};
+export const getAllStudentsSchema = {
+  query: Joi.object().keys({
+    page: generalFeilds.page.optional(),
+    limit: generalFeilds.limit.optional(),
+    search: generalFeilds.search.optional(),
+    country: generalFeilds.country.optional(),
+    active: generalFeilds.active.optional(),
+    noPlan: Joi.boolean().optional(),
+    paid: Joi.string()
+      .valid(...Object.values(studentPaidStatus))
+      .optional(),
+    plans: generalFeilds.id
+      .messages({
+        "string.base": "PLAN_ID_MUST_BE_STRING",
+        "string.empty": "PLAN_ID_CANNOT_BE_EMPTY",
+        "string.pattern.base": "PLAN_ID_MUST_BE_VALID_ID",
+      })
+      .optional(),
   }),
 };

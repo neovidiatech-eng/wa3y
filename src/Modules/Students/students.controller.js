@@ -14,7 +14,7 @@ import { studentPaidStatus } from "../../Utils/Enums/studentts.js";
 import { getModeratorStudentIds } from "../../Utils/Permissions/permissions.js";
 
 export const getAllStudents = asyncHandler(async (req, res, next) => {
-  const { search, country, plans, page = 1, limit = 10, active } = req.query;
+  const { search, country, plans, page = 1, limit = 10, active, paid ,noPlan} = req.query;
 
   const where = {};
   const assignedStudentIds = await getModeratorStudentIds(req.user);
@@ -22,11 +22,12 @@ export const getAllStudents = asyncHandler(async (req, res, next) => {
     where.id = { in: assignedStudentIds };
   }
 
-  if (search) {
+  if (search?.trim()) {
+    const value = search.trim();
     where.user = {
       OR: [
-        { name: { contains: search, mode: "insensitive" } },
-        { email: { contains: search, mode: "insensitive" } },
+        { name: { contains: value, mode: "insensitive" } },
+        { email: { contains: value, mode: "insensitive" } },
       ],
     };
   }
@@ -36,8 +37,17 @@ export const getAllStudents = asyncHandler(async (req, res, next) => {
   if (plans) {
     where.planId = plans;
   }
+  if (noPlan !== undefined) {
+    const isNoPlan = noPlan === "true" || noPlan === true;
+    if (isNoPlan) {
+      where.planId = null;
+    }
+  }
   if (active !== undefined) {
-    where.active = active === "true";
+    where.active = active === "true" || active === true;
+  }
+  if (paid) {
+    where.paid = paid;
   }
 
   const countWhere =

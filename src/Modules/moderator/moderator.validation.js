@@ -27,6 +27,7 @@ const createModerator = {
       phone: generalFeilds.phone.optional(),
       age: generalFeilds.age.required(),
       gender: generalFeilds.gender.required(),
+      salary: Joi.number().min(0).optional(),
       studentIds: Joi.array().items(generalFeilds.id).required(),
     })
     .custom(
@@ -63,6 +64,7 @@ const updateModerator = {
       phone: generalFeilds.phone.optional(),
       age: generalFeilds.age.optional(),
       gender: generalFeilds.gender.optional(),
+      salary: Joi.number().min(0).optional(),
       status: Joi.string().valid("active", "inactive").optional(),
       studentIds: Joi.array().items(generalFeilds.id).optional(),
     })
@@ -88,6 +90,7 @@ export const registerModeratorSchema = {
       name: generalFeilds.name.required(),
       email: generalFeilds.email.required(),
       password: generalFeilds.password.required(),
+      expectedSalary: Joi.number().optional(),
       comfirmPassword: generalFeilds.confirmPassword.optional(),
       confirmPassword: generalFeilds.confirmPassword.optional(),
       codeCountry: generalFeilds.codeCountry.required(),
@@ -136,6 +139,7 @@ export const approveModeratorRequestSchema = {
   }),
   body: Joi.object({
     studentIds: Joi.array().items(generalFeilds.id).optional(),
+    salary:Joi.number().optional(),
   }).optional(),
 };
 

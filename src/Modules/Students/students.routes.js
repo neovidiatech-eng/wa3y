@@ -1,21 +1,24 @@
 import { Router } from "express";
 import { authentication } from "../../Middlewares/Authentication.js";
-import { authorizeResource } from "../../Middlewares/AuthorizationMiddleware.js";
+import { authorize, authorizeResource } from "../../Middlewares/AuthorizationMiddleware.js";
 import { validation } from "../../Middlewares/Validation.js";
 import {
   createStudentSchema,
   updateStudentSchema,
   studentIdSchema,
   updateStudentPlanSchema,
+  getAllStudentsSchema,
 } from "./students.validation.js";
 import * as studentController from "../Students/students.controller.js";
+import { PERMISSIONS_V2 } from "../../Constants/permissions.constants.js";
 
 const router = Router();
 
 router.get(
   "/",
   authentication(),
-  authorizeResource("students"),
+authorize(PERMISSIONS_V2.STUDENTS.READ),
+validation(getAllStudentsSchema),
   studentController.getAllStudents,
 );
 

@@ -12,7 +12,6 @@ import {
 } from "../../Utils/Security/index.js";
 import { activeStatus } from "../../Utils/Enums/status.js";
 
-
 export const getAllModerators = async (req) => {
   const {
     page = 1,
@@ -149,6 +148,7 @@ export const createModerator = async (req) => {
     phone,
     age,
     gender,
+    salary,
     studentIds,
     codeCountry: code_country,
   } = req.body;
@@ -191,6 +191,7 @@ export const createModerator = async (req) => {
     model: "moderator",
     data: {
       gender,
+      ...(salary !== undefined && { salary: Number(salary) }),
       user: {
         create: {
           name,
@@ -226,6 +227,7 @@ export const updateModerator = async (req) => {
     phone,
     age,
     gender,
+    salary,
     status,
     studentIds,
     codeCountry: code_country,
@@ -277,6 +279,7 @@ export const updateModerator = async (req) => {
   // Update moderator model fields
   const modDataToUpdate = {};
   if (gender !== undefined) modDataToUpdate.gender = gender;
+  if (salary !== undefined) modDataToUpdate.salary = Number(salary);
   if (status !== undefined) modDataToUpdate.status = status;
 
   if (Object.keys(modDataToUpdate).length > 0) {
@@ -459,6 +462,7 @@ export const signUpModerator = async ({
   password,
   codeCountry,
   phone,
+  expectedSalary,
   gender,
   country,
   nationality,
@@ -496,7 +500,9 @@ export const signUpModerator = async ({
   const mailResult = await sendEmail({ email, otp, lang });
   if (!mailResult.success) {
     const errorMsg =
-      mailResult.code === "ETIMEDOUT" ? "EMAIL_SERVICE_TIMEOUT" : "EMAIL_SEND_FAILED";
+      mailResult.code === "ETIMEDOUT"
+        ? "EMAIL_SERVICE_TIMEOUT"
+        : "EMAIL_SEND_FAILED";
     const error = new Error(errorMsg);
     error.cause = 500;
     error.statusCode = 500;
@@ -521,13 +527,18 @@ export const signUpModerator = async ({
         city: city || undefined,
         additionalData: additionalData || undefined,
         status: "pending",
+
         // No roleId / confirmAt — confirmed after OTP, fully activated after admin approval
       },
     });
 
     await redis.set(
       `${email}_Moderator_data`,
-      JSON.stringify({ user_id: createdUser.id, gender: gender || "male" }),
+      JSON.stringify({
+        user_id: createdUser.id,
+        gender: gender || "male",
+        expectedSalary,
+      }),
     );
     await redis.expire(`${email}_Moderator_data`, 60 * 60 * 24 * 2);
   });
@@ -562,12 +573,21 @@ export const getModeratorRequests = async (req) => {
 
   await Promise.all(requests.map((r) => decryptUserSensitiveFields(r)));
 
-  return { requests, pagination };
+  const allRedisData = await Promise.all(
+    requests.map(async (r) => {
+      const redisKey = `${r.email}_Moderator_data`;
+      const redisData = await redis.get(redisKey);
+
+      return { ...r, redisData: redisData ? JSON.parse(redisData) : null };
+    }),
+  );
+
+  return { allRedisData, pagination };
 };
 
 export const approveModeratorRequest = async (req) => {
   const { userId } = req.params;
-  const { studentIds } = req.body || {};
+  const { studentIds, salary } = req.body || {};
 
   const user = await db.findFirst({
     model: "user",
@@ -605,7 +625,6 @@ export const approveModeratorRequest = async (req) => {
       throw error;
     }
   }
-
   const updatedModerator = await db.transaction(async (tx) => {
     await tx.updateOne({
       model: "user",
@@ -621,11 +640,13 @@ export const approveModeratorRequest = async (req) => {
       where: { id: user.moderator.id },
       data: {
         status: "active",
-        ...(Array.isArray(studentIds) && studentIds.length > 0 && {
-          studentModerators: {
-            create: studentIds.map((sid) => ({ studentId: sid })),
-          },
-        }),
+        ...(salary !== undefined && { salary: Number(salary) }),
+        ...(Array.isArray(studentIds) &&
+          studentIds.length > 0 && {
+            studentModerators: {
+              create: studentIds.map((sid) => ({ studentId: sid })),
+            },
+          }),
       },
       include: {
         user: true,
@@ -665,6 +686,3 @@ export const rejectModeratorRequest = async (req) => {
   await db.deleteOne({ model: "user", where: { id: user.id } });
   return { id: userId };
 };
-
-
-

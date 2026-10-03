@@ -950,6 +950,84 @@ export const createRecurringSchedule = asyncHandler(async (req, res, next) => {
   });
 });
 
+
+export const syncSessionStatuses = asyncHandler(async (req, res, next) => {
+  const now = new Date();
+
+  // Find all active/pending sessions that need status evaluation
+  const activeSessions = await db.findMany({
+    model: "schedule",
+    where: {
+      status: { in: ["scheduled", "planned", "ongoing"] },
+    },
+    include: {
+      scheduleLogs: true,
+      student: { include: { user: true } },
+      groupStudents: { include: { student: { include: { user: true } } } },
+      teacher: { include: { user: true } },
+    },
+  });
+
+  let updatedCount = 0;
+  let finalizedCount = 0;
+  let ongoingCount = 0;
+
+  for (const session of activeSessions) {
+    const isPast = new Date(session.end_time) <= now;
+    const isCurrent =
+      new Date(session.start_time) <= now && new Date(session.end_time) > now;
+
+    if (isPast) {
+      if (session.status !== "completed" && session.status !== "missed") {
+        await finalizeSession(session.id, req.t);
+        updatedCount++;
+        finalizedCount++;
+      }
+    } else if (isCurrent) {
+      if (session.status === "scheduled" || session.status === "planned") {
+        const log = Array.isArray(session.scheduleLogs)
+          ? session.scheduleLogs[0]
+          : session.scheduleLogs;
+
+        const anyGroupStudentJoined =
+          session.isGroup &&
+          session.groupStudents?.some(
+            (gs) => gs.isAttended || Boolean(gs.joinTime),
+          );
+
+        const anyJoined = Boolean(
+          log?.joinTime_teacher ||
+            log?.joinTime_student ||
+            anyGroupStudentJoined,
+        );
+
+        if (anyJoined) {
+          await db.updateOne({
+            model: "schedule",
+            where: { id: session.id },
+            data: { status: "ongoing" },
+          });
+          updatedCount++;
+          ongoingCount++;
+        }
+      }
+    }
+  }
+
+  return successResponse({
+    res,
+    req,
+    status: 200,
+    message: "STATUSES_SYNCED_SUCCESSFULLY",
+    data: {
+      processed: activeSessions.length,
+      updated: updatedCount,
+      finalizedCount,
+      ongoingCount,
+    },
+  });
+});
+
 /* ------------------------------------------------------------------ */
 /*             Get all schedules (teacher dashboard / admin)            */
 /* ------------------------------------------------------------------ */
@@ -2023,6 +2101,30 @@ export const joinSession = asyncHandler(async (req, res, next) => {
   const updateData = {};
   if (role === "student") {
     updateData.joinTime_student = nowUTC;
+    updateData.isStudentAttended = true;
+
+    if (session.isGroup) {
+      const studentRecord = await db.findFirst({
+        model: "student",
+        where: { user_id: user.id },
+      });
+      if (studentRecord) {
+        await db.updateOne({
+          model: "GroupScheduleStudent",
+          where: {
+            scheduleId_studentId: {
+              scheduleId: id,
+              studentId: studentRecord.id,
+            },
+          },
+          data: {
+            joinTime: nowUTC,
+            isAttended: true,
+            status: "attended",
+          },
+        });
+      }
+    }
   } else if (role === "teacher") {
     updateData.joinTime_teacher = nowUTC;
     const diffMinutes =
@@ -2097,11 +2199,35 @@ export const leaveSession = asyncHandler(async (req, res, next) => {
   const updateData = {};
 
   if (role === "student") {
-    if (!log.joinTime_student)
-      return errorResponse({ req, next, status: 400, message: "NEVER_JOINED" });
-    updateData.leaveTime_student = nowUTC;
-    const duration = (nowUTC - log.joinTime_student) / 60000;
-    updateData.duration_student = duration;
+    if (session.isGroup) {
+      const studentRecord = await db.findFirst({
+        model: "student",
+        where: { user_id: user.id },
+      });
+      if (studentRecord) {
+        const groupStudent = await db.findFirst({
+          model: "GroupScheduleStudent",
+          where: { scheduleId: id, studentId: studentRecord.id },
+        });
+        if (!groupStudent?.joinTime)
+          return errorResponse({ req, next, status: 400, message: "NEVER_JOINED" });
+        const duration = (nowUTC - groupStudent.joinTime) / 60000;
+        await db.updateOne({
+          model: "GroupScheduleStudent",
+          where: { id: groupStudent.id },
+          data: {
+            leaveTime: nowUTC,
+            duration,
+          },
+        });
+      }
+    } else {
+      if (!log.joinTime_student)
+        return errorResponse({ req, next, status: 400, message: "NEVER_JOINED" });
+      updateData.leaveTime_student = nowUTC;
+      const duration = (nowUTC - log.joinTime_student) / 60000;
+      updateData.duration_student = duration;
+    }
   } else if (role === "teacher") {
     if (!log.joinTime_teacher)
       return errorResponse({ req, next, status: 400, message: "NEVER_JOINED" });
@@ -2142,6 +2268,7 @@ export const submitReview = asyncHandler(async (req, res, next) => {
     where: { id },
     include: {
       student: { include: { user: true } },
+      groupStudents: { include: { student: { include: { user: true } } } },
       teacher: { include: { user: true } },
       scheduleLogs: true,
     },
@@ -2179,8 +2306,12 @@ export const submitReview = asyncHandler(async (req, res, next) => {
     });
   }
 
-  const isStudent = user.id === session.student.user.id;
-  const isTeacher = user.id === session.teacher.user.id;
+  const isTeacher = user.id === session.teacher?.user?.id;
+  const isIndividualStudent = user.id === session.student?.user?.id;
+  const groupStudentMatch = session.isGroup
+    ? session.groupStudents.find((gs) => gs.student?.user?.id === user.id)
+    : null;
+  const isStudent = isIndividualStudent || Boolean(groupStudentMatch);
 
   if (!isStudent && !isTeacher) {
     return errorResponse({
@@ -2210,10 +2341,11 @@ export const submitReview = asyncHandler(async (req, res, next) => {
   const teacherActuallyAttended =
     log.isTeacherCompleted === true || Boolean(log.joinTime_teacher);
 
-  const studentActuallyAttended = Boolean(log.joinTime_student);
-  
+  const studentActuallyAttended = session.isGroup
+    ? Boolean(groupStudentMatch?.isAttended || groupStudentMatch?.joinTime)
+    : Boolean(log.joinTime_student);
 
-  // الطالب الغايب ماينفعش يعمل review
+  // Absent student cannot submit a review
   if (isStudent && !studentActuallyAttended) {
     return errorResponse({
       req,
@@ -2223,7 +2355,7 @@ export const submitReview = asyncHandler(async (req, res, next) => {
     });
   }
 
-  // المدرس الغايب ماينفعش يعمل review
+  // Absent teacher cannot submit a review
   if (isTeacher && !teacherActuallyAttended) {
     return errorResponse({
       req,
@@ -2252,16 +2384,16 @@ export const submitReview = asyncHandler(async (req, res, next) => {
 
   const revieweeId = isStudent
     ? session.teacher.user.id
-    : session.student.user.id;
+    : session.student?.user?.id || session.groupStudents?.[0]?.student?.user?.id;
 
   const role = isStudent ? "student" : "teacher";
 
   let review;
 
   // Ensure session is finalized/settled before saving review
-if (log.leaveTime_student && log.leaveTime_teacher) {
-  await finalizeSession(id, req.t);
-}
+  if (log.leaveTime_student && log.leaveTime_teacher) {
+    await finalizeSession(id, req.t);
+  }
 
   await db.transaction(async (tx) => {
     review = await tx.create({
@@ -2277,14 +2409,16 @@ if (log.leaveTime_student && log.leaveTime_teacher) {
     });
   });
 
-  await updateAverageRating(revieweeId);
+  if (revieweeId) {
+    await updateAverageRating(revieweeId);
 
-  await createNotification({
-    userId: revieweeId,
-    title: req.t("NOTIFICATION_REVIEW_RECEIVED_TITLE"),
-    message: req.t("NOTIFICATION_REVIEW_RECEIVED_MSG", { rating }),
-    type: "review_received",
-  });
+    await createNotification({
+      userId: revieweeId,
+      title: req.t("NOTIFICATION_REVIEW_RECEIVED_TITLE"),
+      message: req.t("NOTIFICATION_REVIEW_RECEIVED_MSG", { rating }),
+      type: "review_received",
+    });
+  }
 
   return successResponse({
     res,
@@ -2317,12 +2451,14 @@ async function finalizeSession(scheduleId, t) {
   const log = Array.isArray(session.scheduleLogs)
     ? session.scheduleLogs[0]
     : session.scheduleLogs;
-  if (!log) return;
 
-  const teacherActuallyAttended =
-    log.isTeacherCompleted === true || Boolean(log.joinTime_teacher);
+  const teacherActuallyAttended = log
+    ? log.isTeacherCompleted === true || Boolean(log.joinTime_teacher)
+    : false;
 
-  const studentActuallyAttended = Boolean(log.joinTime_student);
+  const studentActuallyAttended = log
+    ? Boolean(log.joinTime_student)
+    : false;
 
   const finalStudents = session.isGroup
     ? session.groupStudents.map((gs) => gs.student).filter(Boolean)
@@ -2330,8 +2466,27 @@ async function finalizeSession(scheduleId, t) {
     ? [session.student]
     : [];
 
+  const attendedStudents = [];
+  const absentStudents = [];
+
+  if (session.isGroup) {
+    for (const gs of session.groupStudents) {
+      if (gs.isAttended || gs.joinTime) {
+        if (gs.student) attendedStudents.push(gs.student);
+      } else {
+        absentStudents.push(gs);
+      }
+    }
+  } else {
+    if (studentActuallyAttended && session.student) {
+      attendedStudents.push(session.student);
+    } else if (session.student) {
+      absentStudents.push({ student: session.student });
+    }
+  }
+
   await db.transaction(async (tx) => {
-    if (log.isStudentAttended !== studentActuallyAttended) {
+    if (log && log.isStudentAttended !== studentActuallyAttended) {
       await tx.updateOne({
         model: "scheduleLog",
         where: { id: log.id },
@@ -2351,6 +2506,17 @@ async function finalizeSession(scheduleId, t) {
         });
       }
 
+      // Mark group students status as missed
+      if (session.isGroup) {
+        for (const gs of session.groupStudents) {
+          await tx.updateOne({
+            model: "GroupScheduleStudent",
+            where: { id: gs.id },
+            data: { status: "missed" },
+          });
+        }
+      }
+
       await tx.updateOne({
         model: "schedule",
         where: { id: scheduleId },
@@ -2366,7 +2532,8 @@ async function finalizeSession(scheduleId, t) {
       let effectiveRate = 0;
       if (session.isGroup) {
         // Group Session: Calculate rate from teacher.group_hour_price
-        effectiveRate = session.teacher.group_hour_price || session.teacher.hour_price || 0;
+        effectiveRate =
+          session.teacher.group_hour_price || session.teacher.hour_price || 0;
       } else {
         // 1-on-1 Session: Calculate rate from student_teacher model for (studentId, teacherId)
         let stLink = null;
@@ -2381,7 +2548,10 @@ async function finalizeSession(scheduleId, t) {
             },
           });
         }
-        effectiveRate = (stLink && stLink.hour_price > 0) ? stLink.hour_price : (session.teacher.hour_price || 0);
+        effectiveRate =
+          stLink && stLink.hour_price > 0
+            ? stLink.hour_price
+            : session.teacher.hour_price || 0;
       }
 
       let payoutAmount = sessionDuration * effectiveRate;
@@ -2415,35 +2585,47 @@ async function finalizeSession(scheduleId, t) {
         model: "setting",
       });
 
-      // Only count attended session if student really attended
-      if (studentActuallyAttended) {
-        for (const st of finalStudents) {
+      // Update attendance status for each group student record
+      if (session.isGroup) {
+        for (const gs of session.groupStudents) {
+          const isAtt = gs.isAttended || Boolean(gs.joinTime);
           await tx.updateOne({
-            model: "student",
-            where: { id: st.id },
+            model: "GroupScheduleStudent",
+            where: { id: gs.id },
             data: {
-              sessions_attended: { increment: 1 },
-              points: { increment: 10 },
-              ...(settings?.paidSessionCount &&
-              (st.sessions_attended || 0) + 1 >= settings.paidSessionCount
-                ? { paid: studentPaidStatus.Unpaid }
-                : undefined),
+              isAttended: isAtt,
+              status: isAtt ? "attended" : "missed",
             },
           });
         }
       }
+
+      // Increment attended sessions and points only for attended students
+      for (const st of attendedStudents) {
+        await tx.updateOne({
+          model: "student",
+          where: { id: st.id },
+          data: {
+            sessions_attended: { increment: 1 },
+            points: { increment: 10 },
+            ...(settings?.paidSessionCount &&
+            (st.sessions_attended || 0) + 1 >= settings.paidSessionCount
+              ? { paid: studentPaidStatus.Unpaid }
+              : undefined),
+          },
+        });
+      }
     }
   });
 
-  if (studentActuallyAttended) {
-    for (const st of finalStudents) {
-      await checkAndUpdateStudentRank(st.id);
-    }
+  // Check & update rank for attended students
+  for (const st of attendedStudents) {
+    await checkAndUpdateStudentRank(st.id);
   }
 
   const finalStatus = teacherActuallyAttended ? "completed" : "missed";
 
-  // Notify if missed
+  // Notify if teacher missed
   if (finalStatus === "missed") {
     await Promise.all([
       createTeacherAndStudentNotification({
@@ -2453,14 +2635,42 @@ async function finalizeSession(scheduleId, t) {
           : `The session ${session.title} was marked as missed.`,
         type: "session_missed",
         teacherId: session.teacher.user?.id,
-        studentId: session.student.user?.id,
+        studentId: session.student?.user?.id,
       }),
       createAdminNotification({
         title: "تم تفويت الجلسة",
-        message: `تم تفويت الجلسة "${session.title}" بين الطالب: ${session.student.user?.name || "Student"} والمدرس: ${session.teacher.user?.name || "Teacher"}.`,
+        message: `تم تفويت الجلسة "${session.title}" بسبب غياب المدرس: ${session.teacher.user?.name || "المعلم"}.`,
         type: "session_missed",
       }),
     ]);
+  } else {
+    // Teacher attended: Notify Admin and Student for any absent students in group sessions
+    if (session.isGroup) {
+      for (const absentItem of absentStudents) {
+        const studentUser = absentItem.student?.user;
+        if (studentUser) {
+          await createAdminNotification({
+            title: "غياب طالب عن حصة جماعية",
+            message: `غاب الطالب: ${studentUser.name} عن الحصة الجماعية "${session.title}" مع المعلم: ${session.teacher.user?.name || "المعلم"}.`,
+            type: "group_student_absent",
+          });
+
+          await createNotification({
+            userId: studentUser.id,
+            title: "غياب عن الحصة الجماعية",
+            message: `تم تسجيل غيابك عن الحصة الجماعية "${session.title}".`,
+            type: "session_missed",
+          });
+        }
+      }
+    } else if (!studentActuallyAttended && session.student?.user) {
+      // 1-on-1 absent student
+      await createAdminNotification({
+        title: "غياب طالب عن الجلسة",
+        message: `غاب الطالب: ${session.student.user.name} عن الجلسة "${session.title}" مع المعلم: ${session.teacher.user?.name || "المعلم"}.`,
+        type: "session_missed",
+      });
+    }
   }
 }
 

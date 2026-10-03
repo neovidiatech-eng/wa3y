@@ -6,9 +6,8 @@ import {
 export const getAllTeachersSchema = {
   query: joi.object({
     search: generalFeilds.search,
-     page: generalFeilds.page,
+    page: generalFeilds.page,
     limit: generalFeilds.limit,
-
   }),
 };
 
@@ -40,7 +39,8 @@ export const createTeacherSchema = {
       timezone: joi.string().optional(),
       city: generalFeilds.city.optional(),
       age: generalFeilds.age.optional(),
-      group_hour_price: joi.number().min(0).optional().default(0),
+      one_hour_price: generalFeilds.hourPrice.required(),
+      group_hour_price: generalFeilds.hourPrice.required(),
       meeting_link: generalFeilds.url
         .messages({
           "string.base": "MEETING_LINK_STRING",
@@ -108,8 +108,8 @@ export const updateTeacherSchema = {
       timezone: joi.string().optional(),
       city: generalFeilds.city.optional(),
       age: generalFeilds.age.optional(),
-
-      group_hour_price: joi.number().min(0).optional(),
+      one_hour_price: generalFeilds.hourPrice.optional(),
+      group_hour_price: generalFeilds.hourPrice.optional(),
     })
     .custom(
       validateInternationalPhoneLength({
@@ -139,4 +139,3 @@ export const updateStudentHourPriceSchema = {
     }),
   }),
 };
-

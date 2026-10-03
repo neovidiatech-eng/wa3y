@@ -21,7 +21,7 @@ export const getAllTeachers = asyncHandler(async (req, res, next) => {
   const { search, page = 1, limit = 10, active } = req.query;
 
   let where = {
-    approved: true
+    approved: true,
   };
   if (search) {
     where.user = {
@@ -83,6 +83,7 @@ export const createTeacher = asyncHandler(async (req, res, next) => {
     nationality,
     currency_id,
     gender,
+    one_hour_price,
     group_hour_price,
     active,
     subject_ids,
@@ -164,7 +165,8 @@ export const createTeacher = asyncHandler(async (req, res, next) => {
         user: { connect: { id: user.id } },
         currency: { connect: { id: checkCurrency.id } },
         gender,
-        group_hour_price,
+        hour_price: one_hour_price,
+        group_hour_price: group_hour_price,
         meeting_link,
         active: active ?? false,
         teacherSubjects: {
@@ -229,25 +231,24 @@ export const getTeacher = asyncHandler(async (req, res, next) => {
       teacherId: id,
     },
     include: {
-      
       student: { include: { user: true } },
     },
   });
 
   console.log(students);
 
-const finalStudents = await Promise.all(
-  students.map(async ({ student, hour_price }) => {
-    if (!student) return null;
+  const finalStudents = await Promise.all(
+    students.map(async ({ student, hour_price }) => {
+      if (!student) return null;
 
-    await decryptUserSensitiveFields(student.user);
+      await decryptUserSensitiveFields(student.user);
 
-    return {
-      ...student,
-      hour_price,
-    };
-  })
-);
+      return {
+        ...student,
+        hour_price,
+      };
+    }),
+  );
 
   const completedSessionsCount = await db.count({
     model: "schedule",
@@ -353,7 +354,7 @@ const finalStudents = await Promise.all(
 
   const teacherData = {
     ...teacher,
- students: finalStudents.filter(Boolean),
+    students: finalStudents.filter(Boolean),
 
     stats: {
       totalStudents: finalStudents.length,
@@ -362,7 +363,8 @@ const finalStudents = await Promise.all(
       upcomingSessions: upcomingSessionsCount,
       financials: {
         totalHours,
-        hourPrice: teacher.hour_price,
+        hourPrice: teacher.hour_price || 0,
+        groupHourPrice: teacher.group_hour_price || 0,
         totalDue,
         totalEarnings,
         completedEarnings,
@@ -395,8 +397,10 @@ export const updateTeacher = asyncHandler(async (req, res, next) => {
     nationality,
     currency_id,
     gender,
-    hour_price,
-    group_hour_price,    active,
+    one_hour_price,
+    group_hour_price,
+    meeting_link,
+    active,
     subject_ids,
     timezone,
     age,
@@ -457,6 +461,8 @@ export const updateTeacher = asyncHandler(async (req, res, next) => {
     });
   }
 
+
+
   // Update teacher data
   const updatedTeacher = await db.updateOne({
     model: "teacher",
@@ -464,7 +470,13 @@ export const updateTeacher = asyncHandler(async (req, res, next) => {
     data: {
       ...(currency_id && { currency: { connect: { id: currency_id } } }),
       ...(gender && { gender }),
-      ...(group_hour_price !== undefined && { group_hour_price }),
+      ...(one_hour_price !== undefined && {
+        hour_price: one_hour_price,
+      }),
+      ...(group_hour_price !== undefined && {
+        group_hour_price: group_hour_price,
+      }),
+      ...(meeting_link !== undefined && { meeting_link }),
       ...(active !== undefined && { active }),
       ...(subject_ids && {
         teacherSubjects: {
