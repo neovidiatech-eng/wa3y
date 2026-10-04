@@ -59,7 +59,6 @@ model role {
   updatedAt       DateTime         @updatedAt
   rolePermissions rolePermission[]
   stuff           stuff[]
-  teachers        teacher[]
   users           user[]
 }
 
@@ -184,27 +183,26 @@ model stuff {
 }
 
 model teacher {
-  id                    String                 @id @default(uuid())
-  user_id               String                 @unique
-  currencyId            String?
-  hour_price            Float?                 @default(0)
-  group_hour_price      Float?                 @default(0)
-  gender                String
-  active                Boolean                @default(false)
-  roleId                String?
-  createdAt             DateTime               @default(now())
-  updatedAt             DateTime               @updatedAt
-  avgRating             Float                  @default(0)
-  totalReviews          Int                    @default(0)
-  meeting_link          String?
-  approved              Boolean                @default(false)
-  conversations         Conversation[]
-  exams                 exam[]
-  homeworks             homework[]
-  schedules             schedule[]
-  studentTeachers       student_teacher[]
-  currency              currency?              @relation(fields: [currencyId], references: [id])
-  role                  role?                  @relation(fields: [roleId], references: [id])
+  id               String            @id @default(uuid())
+  user_id          String            @unique
+  currencyId       String?
+  hour_price       Float?            @default(0)
+  group_hour_price Float?            @default(0)
+  gender           String
+  active           Boolean           @default(false)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  avgRating        Float             @default(0)
+  totalReviews     Int               @default(0)
+  meeting_link     String?
+  approved         Boolean           @default(false)
+  conversations    Conversation[]
+  exams            exam[]
+  homeworks        homework[]
+  schedules        schedule[]
+  studentTeachers  student_teacher[]
+  currency         currency?         @relation(fields: [currencyId], references: [id])
+
   user                  user                   @relation(fields: [user_id], references: [id], onDelete: Cascade)
   teacherSubjects       teacher_subject[]
   violations            TeacherViolation[]
@@ -672,7 +670,7 @@ model moderator {
   userId              String               @unique
   gender              String               @default("male")
   createdAt           DateTime             @default(now())
-  salary              Float?                @default(0)
+  salary              Float?               @default(0)
   status              String               @default("active")
   updatedAt           DateTime             @updatedAt
   user                user                 @relation(fields: [userId], references: [id], onDelete: Cascade)

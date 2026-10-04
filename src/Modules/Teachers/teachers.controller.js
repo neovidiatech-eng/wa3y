@@ -167,7 +167,9 @@ export const createTeacher = asyncHandler(async (req, res, next) => {
         gender,
         hour_price: one_hour_price,
         group_hour_price: group_hour_price,
+        approved: true,
         meeting_link,
+        roleId: getrole.id,
         active: active ?? false,
         teacherSubjects: {
           create: (subject_ids || []).map((subject_id) => ({
