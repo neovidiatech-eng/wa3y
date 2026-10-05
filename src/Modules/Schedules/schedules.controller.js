@@ -1776,8 +1776,9 @@ export const updateSchedule = asyncHandler(async (req, res, next) => {
     model: "schedule",
     where: { id },
     include: {
-      student: { include: { plan: true } },
-      groupStudents: { include: { student: { include: { plan: true } } } },
+      student: { include: { plan: true, user: true } },
+      groupStudents: { include: { student: { include: { plan: true, user: true } } } },
+      teacher: { include: { user: true } },
     },
   });
 
@@ -1957,7 +1958,7 @@ export const updateSchedule = asyncHandler(async (req, res, next) => {
       if (reminderTime > now) {
         addNotificationJob({
           scheduleId: id,
-          studentId: schedule.studentId,
+          studentId: schedule.studentId || targetStudentIds[0],
           type: notificationJobType,
           sendAt: reminderTime,
         });
@@ -1965,24 +1966,32 @@ export const updateSchedule = asyncHandler(async (req, res, next) => {
     }
   }
 
-  const [studentInfo, teacherInfo] = await Promise.all([
-    db.findOne({ model: "student", where: { id: schedule.studentId }, include: { user: true } }),
-    db.findOne({ model: "teacher", where: { id: schedule.teacherId }, include: { user: true } }),
-  ]);
-   await Promise.all([
-    createTeacherAndStudentNotification({
-    title: "تم تعديل الجلسة",
-    message: `تم تعديل الجلسة "${schedule.title}" للطالب: ${studentInfo?.user?.name || "Student"} مع المدرس: ${teacherInfo?.user?.name || "Teacher"}. الي المعاد الجديد ${startTime} - ${endTime}`,
-    type: "session_updated",
-    teacherId: teacherInfo?.user?.id,
-    studentId: studentInfo?.user?.id,
-  }),
-  createAdminNotification({
-    title: "تم تعديل الجلسة",
-    message: `تم تعديل الجلسة "${schedule.title}" للطالب: ${studentInfo?.user?.name || "Student"} مع المدرس: ${teacherInfo?.user?.name || "Teacher"}.`,
-    type: "session_updated",
-  }),
- ]);
+  const teacherUserId = schedule.teacher?.user?.id;
+  const teacherName = schedule.teacher?.user?.name || "Teacher";
+  const studentNames =
+    students.map((s) => s.user?.name || "Student").join(", ") || "Student";
+
+  const notificationPromises = students
+    .filter((s) => s.user?.id)
+    .map((s) =>
+      createTeacherAndStudentNotification({
+        title: "تم تعديل الجلسة",
+        message: `تم تعديل الجلسة "${schedule.title}" للطالب: ${s.user?.name || "Student"} مع المدرس: ${teacherName}. الي المعاد الجديد ${startTime} - ${endTime}`,
+        type: "session_updated",
+        teacherId: teacherUserId,
+        studentId: s.user.id,
+      })
+    );
+
+  notificationPromises.push(
+    createAdminNotification({
+      title: "تم تعديل الجلسة",
+      message: `تم تعديل الجلسة "${schedule.title}" للطالب: ${studentNames} مع المدرس: ${teacherName}.`,
+      type: "session_updated",
+    })
+  );
+
+  await Promise.all(notificationPromises);
 
   return successResponse({
     res,
