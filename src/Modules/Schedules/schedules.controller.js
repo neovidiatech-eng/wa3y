@@ -2014,7 +2014,15 @@ export const joinSession = asyncHandler(async (req, res, next) => {
   const settings = await getSettingsData();
   
 
-  const session = await db.findOne({ model: "schedule", where: { id } });
+  const session = await db.findOne({
+    model: "schedule",
+    where: { id },
+    include: {
+      student: { include: { user: true } },
+      groupStudents: { include: { student: { include: { user: true } } } },
+      teacher: { include: { user: true } },
+    },
+  });
   if (!session) {
     return errorResponse({
       req,
@@ -2166,23 +2174,36 @@ export const joinSession = asyncHandler(async (req, res, next) => {
   }
 
   // Notify other party
-  const targetUserId =
-    role === "student" ? session.teacherId : session.studentId;
-  const targetUser = await db.findOne({
-    model: role === "student" ? "teacher" : "student",
-    where: { id: targetUserId },
-    include: { user: true },
-  });
+  if (role === "student") {
+    if (session.teacher?.user?.id) {
+      await createNotification({
+        userId: session.teacher.user.id,
+        title: req.t("NOTIFICATION_SESSION_JOINED_TITLE"),
+        message: req.t("NOTIFICATION_SESSION_JOINED_MSG", {
+          role: req.t("STUDENT"),
+        }),
+        type: "session_joined",
+      });
+    }
+  } else if (role === "teacher") {
+    const studentsToNotify = session.isGroup
+      ? session.groupStudents?.map((gs) => gs.student).filter(Boolean) || []
+      : session.student
+      ? [session.student]
+      : [];
 
-  if (targetUser?.user?.id) {
-    await createNotification({
-      userId: targetUser.user.id,
-      title: req.t("NOTIFICATION_SESSION_JOINED_TITLE"),
-      message: req.t("NOTIFICATION_SESSION_JOINED_MSG", {
-        role: role === "student" ? req.t("STUDENT") : req.t("TEACHER"),
-      }),
-      type: "session_joined",
-    });
+    for (const st of studentsToNotify) {
+      if (st?.user?.id) {
+        await createNotification({
+          userId: st.user.id,
+          title: req.t("NOTIFICATION_SESSION_JOINED_TITLE"),
+          message: req.t("NOTIFICATION_SESSION_JOINED_MSG", {
+            role: req.t("TEACHER"),
+          }),
+          type: "session_joined",
+        });
+      }
+    }
   }
 
   return successResponse({ res, req, status: 200, message: "JOINED_SUCCESS" });
