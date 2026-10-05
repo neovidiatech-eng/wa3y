@@ -1,6 +1,5 @@
 export const activeStatus = {
   ACTIVE: "active",
-  ACTIVIE: "active",
   INACTIVE: "inactive",
   PENDING: "pending",
   REJECTED: "rejected",

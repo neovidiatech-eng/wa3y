@@ -299,11 +299,7 @@ export const login = asyncHandler(async (req, res, next) => {
     });
   }
 
-
-  if (
-    user.status !== activeStatus.ACTIVE &&
-    user.status !== activeStatus.ACTIVIE
-  ) {
+  if (user.status !== activeStatus.ACTIVE) {
     return errorResponse({
       req,
       next,
@@ -327,11 +323,7 @@ export const login = asyncHandler(async (req, res, next) => {
     });
   }
 
-  if (
-    user.moderator &&
-    user.moderator.status !== activeStatus.ACTIVE &&
-    user.moderator.status !== activeStatus.ACTIVIE
-  ) {
+  if (user.moderator && user.moderator.status !== activeStatus.ACTIVE) {
     return errorResponse({
       req,
       next,
@@ -340,13 +332,7 @@ export const login = asyncHandler(async (req, res, next) => {
     });
   }
 
-  if (
-    user.student &&
-    (user.student.active === false ||
-      (user.student.status &&
-        user.student.status !== activeStatus.ACTIVE &&
-        user.student.status !== activeStatus.ACTIVIE))
-  ) {
+  if (user.student && user.student.active === false) {
     return errorResponse({
       req,
       next,
@@ -551,7 +537,6 @@ export const verifyAccount = asyncHandler(async (req, res, next) => {
       },
     });
 
-
     await createAdminNotification({
       title: "طلب تسجيل مشرف جديد",
       message: `قدّم مشرف جديد طلب تسجيل بانتظار المراجعة: ${user.name} (${user.email}).`,
@@ -705,10 +690,7 @@ export const refresh = asyncHandler(async (req, res, next) => {
     });
   }
 
-  if (
-    user.status !== activeStatus.ACTIVE &&
-    user.status !== activeStatus.ACTIVIE
-  ) {
+  if (user.status !== activeStatus.ACTIVE) {
     return errorResponse({
       req,
       next,
@@ -729,11 +711,7 @@ export const refresh = asyncHandler(async (req, res, next) => {
     });
   }
 
-  if (
-    user.moderator &&
-    user.moderator.status !== activeStatus.ACTIVE &&
-    user.moderator.status !== activeStatus.ACTIVIE
-  ) {
+  if (user.moderator && user.moderator.status !== activeStatus.ACTIVE) {
     return errorResponse({
       req,
       next,
@@ -742,13 +720,7 @@ export const refresh = asyncHandler(async (req, res, next) => {
     });
   }
 
-  if (
-    user.student &&
-    (user.student.active === false ||
-      (user.student.status &&
-        user.student.status !== activeStatus.ACTIVE &&
-        user.student.status !== activeStatus.ACTIVIE))
-  ) {
+  if (user.student && user.student.active === false) {
     return errorResponse({
       req,
       next,
@@ -1021,7 +993,7 @@ export const getTeacherRequests = asyncHandler(async (req, res, next) => {
       where: {
         roleId: null,
         confirmAt: { not: null }, // email verified
-        moderator:null
+        moderator: null,
       },
       page,
       limit,
@@ -1215,5 +1187,3 @@ export const rejectTeacherRequest = asyncHandler(async (req, res, next) => {
     message: "TEACHER_REQUEST_REJECTED",
   });
 });
-
-

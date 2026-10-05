@@ -80,7 +80,7 @@ export const authentication = () => {
       );
     }
 
-    if (user.status !== activeStatus.ACTIVIE) {
+    if (user.status !== activeStatus.ACTIVE) {
       return next(new Error("USER_NOT_ACTIVE", { cause: 401 }));
     }
 
@@ -91,16 +91,12 @@ export const authentication = () => {
       return next(new Error("TEACHER_NOT_ACTIVE", { cause: 401 }));
     }
 
-    if (user.moderator && user.moderator.status !== activeStatus.ACTIVIE) {
+    if (user.moderator && user.moderator.status !== activeStatus.ACTIVE) {
       return next(new Error("MODERATOR_NOT_ACTIVE", { cause: 401 }));
     }
 
 
-    if (
-      user.student &&
-      (user.student.active === false ||
-        (user.student.status && user.student.status !== activeStatus.ACTIVIE))
-    ) {
+    if (user.student && user.student.active === false) {
       return next(new Error("STUDENT_NOT_ACTIVE", { cause: 401 }));
     }
 
