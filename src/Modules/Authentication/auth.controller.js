@@ -999,7 +999,7 @@ export const getTeacherRequests = asyncHandler(async (req, res, next) => {
       limit,
       include: {
         teacher: {
-          where: { active: false, roleId: null },
+          where: { active: false },
           include: {
             teacherSubjects: { include: { subject: true } },
             currency: true,
